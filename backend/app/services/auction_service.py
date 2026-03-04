@@ -6,6 +6,7 @@ from app.repository.auction_repo import (
 from app.repository.property_repo import get_property_by_id
 from app.services.prediction_service import get_prediction, _is_loaded
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 from datetime import datetime, timedelta
 
 
@@ -14,16 +15,16 @@ async def create_auction_service(property_id: str, reserve_price: float,
     """Start an auction for a property."""
     prop = await get_property_by_id(property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
 
     if str(prop.get("owner_id")) != str(current_user.get("_id", current_user.get("id"))):
-        raise HTTPException(status_code=403, detail="Only the owner can create an auction")
+        raise AuthorizationError(detail="Only the owner can create an auction")
 
     # Check for existing active auctions
     existing = await get_auctions_by_property(property_id)
     active_ones = [a for a in existing if a.get("status") == "active"]
     if active_ones:
-        raise HTTPException(status_code=400, detail="Property already has an active auction")
+        raise ValidationError(detail="Property already has an active auction")
 
     from app.services.property_state.property_state_controller import update_property_state
     from app.services.property_state.property_state_machine import PropertyEvent
@@ -67,10 +68,10 @@ async def place_bid_service(auction_id: str, amount: float,
     """Record a bid on an auction."""
     auction = await get_auction_by_id(auction_id)
     if not auction:
-        raise HTTPException(status_code=404, detail="Auction not found")
+        raise NotFoundError(detail="Auction not found")
 
     if auction["status"] != "active":
-        raise HTTPException(status_code=400, detail="Auction is not active")
+        raise ValidationError(detail="Auction is not active")
 
     now = datetime.utcnow()
     end_time = auction["end_time"]
@@ -78,7 +79,7 @@ async def place_bid_service(auction_id: str, amount: float,
         end_time = datetime.fromisoformat(end_time)
 
     if now >= end_time:
-        raise HTTPException(status_code=400, detail="Auction has ended")
+        raise ValidationError(detail="Auction has ended")
 
     # Validate bid amount
     if auction["current_bid"] == 0:
@@ -99,7 +100,7 @@ async def place_bid_service(auction_id: str, amount: float,
     user_id = str(current_user.get("_id", current_user.get("id", "")))
     
     if user_id == seller_id:
-        raise HTTPException(status_code=400, detail="Seller cannot bid on their own auction. Please use a different account.")
+        raise ValidationError(detail="Seller cannot bid on their own auction. Please use a different account.")
 
     wallet = current_user.get("wallet_address") or current_user.get("email") or "unknown"
 
@@ -139,15 +140,15 @@ async def finalize_auction_service(auction_id: str, current_user: dict) -> dict:
     """Finalize an ended auction."""
     auction = await get_auction_by_id(auction_id)
     if not auction:
-        raise HTTPException(status_code=404, detail="Auction not found")
+        raise NotFoundError(detail="Auction not found")
 
     seller_id = auction.get("seller_id", "")
     user_id = str(current_user.get("_id", current_user.get("id", "")))
     if user_id != seller_id:
-        raise HTTPException(status_code=403, detail="Only seller can finalize")
+        raise AuthorizationError(detail="Only seller can finalize")
 
     if auction["status"] != "active":
-        raise HTTPException(status_code=400, detail="Auction is not active")
+        raise ValidationError(detail="Auction is not active")
 
     now = datetime.utcnow()
     end_time = auction["end_time"]
@@ -155,7 +156,7 @@ async def finalize_auction_service(auction_id: str, current_user: dict) -> dict:
         end_time = datetime.fromisoformat(end_time)
 
     if now < end_time:
-        raise HTTPException(status_code=400, detail="Auction still running")
+        raise ValidationError(detail="Auction still running")
 
     await update_auction(auction_id, {"status": "finalized"})
     
@@ -192,7 +193,7 @@ async def get_auction_detail_service(auction_id: str) -> dict:
     """Get auction details with bid history and real urban AI valuation."""
     auction = await get_auction_by_id(auction_id)
     if not auction:
-        raise HTTPException(status_code=404, detail="Auction not found")
+        raise NotFoundError(detail="Auction not found")
 
     bids = await get_bids_for_auction(auction_id)
     prop = await get_property_by_id(str(auction["property_id"]))

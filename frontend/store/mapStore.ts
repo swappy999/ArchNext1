@@ -57,13 +57,15 @@ interface MapState {
     setViewMode: (mode: '2d' | '3d') => void
     setSynthMode: (mode: 'price' | 'infra' | 'mobility' | 'demand') => void
     setCinematicEntry: (done: boolean) => void
-    fetchMapData: (bounds: MapBounds) => Promise<void>
+    fetchMapData: (bounds: MapBounds, page?: number, limit?: number) => Promise<void>
     flyTo: (target: Partial<Viewport>, duration?: number) => void
 }
 
-// ─── Debounce Helper ──────────────────────────────────────────────────────────
+// ─── Debounce Helper & Cache ──────────────────────────────────────────────────
 
 let fetchTimer: any = null
+const CACHE_DURATION = 30 * 1000 // 30 seconds
+const apiCache = new Map<string, { smartData: any; aiData: any; timestamp: number }>()
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -131,15 +133,34 @@ export const useMapStore = create<MapState>((set, get) => ({
     setSynthMode: (mode) => set({ synthMode: mode }),
     setCinematicEntry: (done) => set({ cinematicEntry: done }),
 
-    fetchMapData: async (bounds) => {
+    fetchMapData: async (bounds, page = 1, limit = 100) => {
         set({ loading: true })
         try {
             const { ne_lng, ne_lat, sw_lng, sw_lat } = bounds
             const zoom = get().viewport.zoom;
 
-            // 1. Fetch Structural Data (Extrusions, Boundaries, Clusters)
+            // Cache keys based on rounded coordinates to group minor pans
+            const cacheKey = `${sw_lat.toFixed(3)}_${sw_lng.toFixed(3)}_${ne_lat.toFixed(3)}_${ne_lng.toFixed(3)}_${zoom.toFixed(1)}_${page}_${limit}`
+            const cachedParams = apiCache.get(cacheKey)
+
+            if (cachedParams && Date.now() - cachedParams.timestamp < CACHE_DURATION) {
+                const { smartData, aiData } = cachedParams;
+                set({
+                    mlGeoJson: aiData,
+                    clusters: smartData?.clusters || [],
+                    heatmap: smartData?.heatmap || [],
+                    zones: smartData?.zones || [],
+                    pulsePoints: smartData?.pulse_points || [],
+                    currentZone: smartData?.zone || null,
+                    propertyCount: aiData?.features?.length || 0,
+                    loading: false,
+                })
+                return;
+            }
+
+            // 1. Fetch Structural Data (Extrusions, Boundaries, Clusters) with pagination/limits
             const smartDataPromise = api.get(
-                `/map/smart-map?ne_lng=${ne_lng}&ne_lat=${ne_lat}&sw_lng=${sw_lng}&sw_lat=${sw_lat}`
+                `/map/smart-map?ne_lng=${ne_lng}&ne_lat=${ne_lat}&sw_lng=${sw_lng}&sw_lat=${sw_lat}&limit=${limit}&page=${page}`
             )
 
             // 2. Fetch Live Machine Learning Geo-predictions
@@ -150,6 +171,8 @@ export const useMapStore = create<MapState>((set, get) => ({
 
             // Await both spatial systems concurrently
             const [smartData, aiData] = await Promise.all([smartDataPromise, aiDataPromise])
+
+            apiCache.set(cacheKey, { smartData, aiData, timestamp: Date.now() })
 
             set({
                 mlGeoJson: aiData,

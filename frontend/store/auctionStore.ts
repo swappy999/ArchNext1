@@ -5,6 +5,8 @@ import { api } from '@/lib/api'
 import { useAuthStore } from './authStore'
 import { getEthersSigner, parseBlockchainError } from './walletStore'
 import { blockchainProvider } from '@/lib/blockchainProvider'
+import { selectChain, chainLabel } from '@/lib/blockchain/selectChain'
+import type { ChainId } from '@/lib/blockchain/types'
 import { ethers } from 'ethers'
 import toast from 'react-hot-toast'
 
@@ -138,41 +140,54 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
             const property = propRes.property || propRes
 
             let txHash = ''
+            const chain: ChainId = property.chain || 'polygon'
 
             if (property.is_nft && property.nft_token_id !== undefined && property.nft_token_id !== null) {
                 let auctionContractAddr = ''
                 let nftContractAddr = ''
 
-                try {
-                    const addrData = await import('@/contracts/PropertyAuction-address.json')
-                    auctionContractAddr = addrData.address
-                    const nftData = await import('@/contracts/PropertyNFT-address.json')
-                    nftContractAddr = nftData.address
-                } catch (e) {
-                    if (!blockchainProvider.isMock()) throw e
+                if (chain !== 'algorand') {
+                    try {
+                        const addrData = await import('@/contracts/PropertyAuction-address.json')
+                        auctionContractAddr = addrData.address
+                        const nftData = await import('@/contracts/PropertyNFT-address.json')
+                        nftContractAddr = nftData.address
+                    } catch (e) {
+                        if (!blockchainProvider.isMock()) throw e
+                    }
                 }
 
-                if (!blockchainProvider.isMock() && (!auctionContractAddr || auctionContractAddr === '0x0000000000000000000000000000000000000000')) {
-                    throw new Error('Auction contract not deployed yet.')
+                let useOnChain = true;
+                if (chain !== 'algorand' && (!auctionContractAddr || auctionContractAddr === '0x0000000000000000000000000000000000000000')) {
+                    useOnChain = false;
                 }
 
-                toast.loading(blockchainProvider.isMock() ? 'Mock: Approving and starting auction...' : 'Confirm auction creation in MetaMask...', { id: toastId })
+                const adapter = selectChain(chain)
+                const networkName = chainLabel(chain)
 
-                // Assume 1 POL reserve price format
-                const reservePriceWei = ethers.parseEther(reservePrice.toString())
-                const durationSeconds = durationHours * 3600
+                if (useOnChain || blockchainProvider.isMock() || chain === 'algorand') {
+                    if (chain === 'algorand') {
+                        toast.loading(`Creating auction on ${networkName}...`, { id: toastId })
+                    } else {
+                        toast.loading(blockchainProvider.isMock() ? 'Mock: Approving and starting auction...' : 'Confirm auction creation in MetaMask...', { id: toastId })
+                    }
 
-                // Approve the NFT first
-                if (!blockchainProvider.isMock()) {
-                    const signer = await getEthersSigner()
-                    const nftAbi = await import('@/contracts/PropertyNFT.json')
-                    const nftContract = new ethers.Contract(nftContractAddr, nftAbi.abi, signer)
-                    const approveTx = await nftContract.approve(auctionContractAddr, property.nft_token_id)
-                    await approveTx.wait()
+                    // Assume 1 POL reserve price format
+                    const reservePriceWei = ethers.parseEther(reservePrice.toString())
+                    const durationSeconds = durationHours * 3600
+
+                    // Approve the NFT first (Polygon only)
+                    if (chain !== 'algorand' && !blockchainProvider.isMock()) {
+                        const signer = await getEthersSigner()
+                        const nftAbi = await import('@/contracts/PropertyNFT.json')
+                        const nftContract = new ethers.Contract(nftContractAddr, nftAbi.abi, signer)
+                        const approveTx = await nftContract.approve(auctionContractAddr, property.nft_token_id)
+                        await approveTx.wait()
+                    }
+
+                    const result = await adapter.startAuction(auctionContractAddr, nftContractAddr, property.nft_token_id, reservePriceWei, durationSeconds)
+                    txHash = result.txHash
                 }
-
-                const result = await blockchainProvider.startAuction(auctionContractAddr, nftContractAddr, property.nft_token_id, reservePriceWei, durationSeconds)
-                txHash = result.txHash
             }
 
             const res = await api.post(`/auction/create/${propertyId}`, {
@@ -203,6 +218,8 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
             if (!auction) throw new Error('Auction not loaded')
 
             let txHash = ''
+            // Determine chain from auction's property (falls back to polygon)
+            const chain: ChainId = (auction as any).property?.chain || 'polygon'
 
             try {
                 const signer = await getEthersSigner()
@@ -215,35 +232,46 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
                 let tokenContractAddr: string = ''
                 let useOnChain = true
 
-                try {
-                    const addrData = await import('@/contracts/PropertyAuction-address.json')
-                    auctionContractAddr = addrData.address
-                    const tokenData = await import('@/contracts/PropertyBiddingToken-address.json')
-                    tokenContractAddr = tokenData.address
-                    if (!auctionContractAddr || auctionContractAddr === '0x0000000000000000000000000000000000000000') {
-                        useOnChain = false
+                if (chain !== 'algorand') {
+                    try {
+                        const addrData = await import('@/contracts/PropertyAuction-address.json')
+                        auctionContractAddr = addrData.address
+                        const tokenData = await import('@/contracts/PropertyBiddingToken-address.json')
+                        tokenContractAddr = tokenData.address
+                        if (!auctionContractAddr || auctionContractAddr === '0x0000000000000000000000000000000000000000') {
+                            useOnChain = false
+                        }
+                    } catch (e) {
+                        if (!blockchainProvider.isMock()) useOnChain = false
                     }
-                } catch (e) {
-                    if (!blockchainProvider.isMock()) useOnChain = false
                 }
 
-                if (useOnChain || blockchainProvider.isMock()) {
+                const adapter = selectChain(chain)
+                const networkName = chainLabel(chain)
+
+                if (useOnChain || blockchainProvider.isMock() || chain === 'algorand') {
                     // ERC-20 Approval (amount in token units — using parseUnits for 18 decimals)
                     const amountWei = ethers.parseUnits(amount.toString(), 18)
 
-                    toast.loading(blockchainProvider.isMock() ? 'Mock: Approving ARCH tokens...' : 'Approving... waiting for confirmation', { id: toastId })
-                    await blockchainProvider.approveTokens(tokenContractAddr, auctionContractAddr, amountWei)
+                    if (chain === 'algorand') {
+                        toast.loading(`Submitting bid to ${networkName}...`, { id: toastId })
+                    } else {
+                        toast.loading(blockchainProvider.isMock() ? 'Mock: Approving ARCH tokens...' : 'Approving... waiting for confirmation', { id: toastId })
+                    }
+                    await adapter.approveTokens(tokenContractAddr, auctionContractAddr, amountWei)
 
                     set({ approving: false })
 
                     // ─── Step 2: Place Bid ─────────────────────────────────────────────────
-                    toast.loading(blockchainProvider.isMock() ? 'Mock: Confirm bid...' : 'Step 2/3: Confirm bid in MetaMask...', { id: toastId })
+                    if (chain !== 'algorand') {
+                        toast.loading(blockchainProvider.isMock() ? 'Mock: Confirm bid...' : 'Step 2/3: Confirm bid in MetaMask...', { id: toastId })
+                    }
                     const onChainId = (auction as any).on_chain_id ?? parseInt(auction.id)
                     if (isNaN(onChainId)) throw new Error('Invalid on-chain auction ID')
 
-                    const result = await blockchainProvider.placeBid(auctionContractAddr, onChainId, amountWei)
+                    const result = await adapter.placeBid(auctionContractAddr, onChainId, amountWei)
 
-                    toast.loading(blockchainProvider.isMock() ? 'Mock: Mining bid transaction...' : 'Step 3/3: Mining bid transaction...', { id: toastId })
+                    toast.loading(blockchainProvider.isMock() ? 'Mock: Mining bid transaction...' : `Step 3/3: Mining bid on ${networkName}...`, { id: toastId })
                     txHash = result.txHash
                 }
 
@@ -279,17 +307,27 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
 
             try {
                 const onChainId = (auction as any).on_chain_id ?? parseInt(auction.id)
+                const chain: ChainId = (auction as any).property?.chain || 'polygon'
                 let auctionContractAddr = ''
 
-                try {
-                    const addrData = await import('@/contracts/PropertyAuction-address.json')
-                    auctionContractAddr = addrData.address
-                } catch (e) {
-                    if (!blockchainProvider.isMock()) throw e
+                if (chain !== 'algorand') {
+                    try {
+                        const addrData = await import('@/contracts/PropertyAuction-address.json')
+                        auctionContractAddr = addrData.address
+                    } catch (e) {
+                        if (!blockchainProvider.isMock()) throw e
+                    }
                 }
 
-                toast.loading(blockchainProvider.isMock() ? 'Mock: Confirm finalization...' : 'Confirm finalization in MetaMask...', { id: toastId })
-                await blockchainProvider.finalizeAuction(auctionContractAddr, onChainId)
+                const adapter = selectChain(chain)
+                const networkName = chainLabel(chain)
+
+                if (chain === 'algorand') {
+                    toast.loading(`Finalizing auction on ${networkName}...`, { id: toastId })
+                } else {
+                    toast.loading(blockchainProvider.isMock() ? 'Mock: Confirm finalization...' : 'Confirm finalization in MetaMask...', { id: toastId })
+                }
+                await adapter.finalizeAuction(auctionContractAddr, onChainId)
 
             } catch (ethError: any) {
                 const parsedMsg = parseBlockchainError(ethError)

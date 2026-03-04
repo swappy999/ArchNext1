@@ -27,25 +27,25 @@ function AIValuationBadge({ valuation }: { valuation: any }) {
         <div className="space-y-3 pt-4 border-t border-white/[0.04]">
             <div className="flex items-center gap-2">
                 <Brain size={12} className="text-cyan-400" />
-                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-[0.2em]">AI Valuation</span>
+                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.1em]">Value Report</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="glass-panel p-3 rounded-xl border border-white/[0.06]">
-                    <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Per Sq.Ft</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Per Sq.Ft</p>
                     <p className="text-sm font-black text-white">₹ {valuation.predicted_price_per_sqft?.toLocaleString('en-IN')}</p>
                 </div>
                 <div className="glass-panel p-3 rounded-xl border border-white/[0.06]">
-                    <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Total Est.</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Est.</p>
                     <p className="text-sm font-black text-emerald-400">₹ {(valuation.total_estimated_value / 10000000)?.toFixed(2)} Cr</p>
                 </div>
             </div>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Shield size={10} className="text-emerald-400" />
-                    <span className="text-[9px] font-bold text-slate-500">Confidence: <span className="text-emerald-400">{valuation.confidence}%</span></span>
+                    <span className="text-[9px] font-bold text-slate-300">Confidence: <span className="text-emerald-400">{valuation.confidence}%</span></span>
                 </div>
                 <span className={`text-[8px] font-black px-2 py-1 rounded-lg bg-gradient-to-r ${tierColor} text-white uppercase tracking-widest`}>
-                    Zone {valuation.market_tier}
+                    <span className="sr-only">Market Tier: </span>Zone {valuation.market_tier}
                 </span>
             </div>
         </div>
@@ -135,8 +135,8 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
 
                 {/* Status Badges */}
                 <div className="absolute top-5 left-5 flex flex-col gap-2 z-20">
-                    <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-white/10 bg-black/60 backdrop-blur-md text-slate-400 uppercase tracking-widest shadow-lg">
-                        NODE #{listing.token_id || listing.id?.slice(0, 6)}
+                    <span className="text-[10px] font-black px-3 py-1.5 rounded-xl border border-white/10 bg-black/60 backdrop-blur-md text-slate-400 uppercase tracking-widest shadow-lg">
+                        PROPERTY #{listing.token_id || listing.id?.slice(0, 6)}
                     </span>
                     {isOwner && (
                         <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/20 backdrop-blur-md text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
@@ -153,7 +153,11 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                             <Fingerprint size={12} /> ON-CHAIN
                         </a>
                     )}
-                    {listing.price_listed_matic > 0 && (
+                    {(listing.chain === 'algorand') ? (
+                        <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-md text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
+                            <Cpu size={12} /> Algorand TestNet
+                        </span>
+                    ) : (listing.chain === 'polygon' || listing.price_listed_matic > 0) && (
                         <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 backdrop-blur-md text-purple-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
                             <Cpu size={12} /> Polygon Amoy
                         </span>
@@ -169,7 +173,8 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                                 listing.ai_valuation.market_tier === 'B' ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-400' :
                                     'border border-slate-500/30 bg-slate-500/10 text-slate-400'
                         )}>
-                            <Flame size={10} />
+                            <Flame size={10} aria-hidden="true" />
+                            <span className="sr-only">AI Market Tier </span>
                             ZONE {listing.ai_valuation.market_tier}
                         </div>
                     </div>
@@ -185,18 +190,18 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
             {/* Content Section */}
             <div className="p-6 flex flex-col gap-4 flex-1 relative z-10">
                 <div className="space-y-2">
-                    <Link href={`/properties/${listing.id}`}>
+                    <Link href={`/properties/${listing.id}`} aria-label={`View details for ${listing.title || 'Property Asset'}`}>
                         <h3 className="text-lg font-black text-white truncate tracking-tight group-hover:text-cyan-400 transition-colors cursor-pointer">
-                            {listing.title || listing.property_title || 'Autonomous Asset'}
+                            {listing.title || listing.property_title || 'Property Asset'}
                         </h3>
                     </Link>
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-slate-600 uppercase">Owner:</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase">Owner:</span>
                             <span className="text-[10px] font-black text-white">{listing.owner?.name || 'Protocol'}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-slate-600 uppercase">Wallet:</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase">Wallet:</span>
                             <span className="text-[9px] font-bold text-cyan-500/80 font-mono tracking-tighter">
                                 {listing.owner?.wallet ? shortAddress(listing.owner.wallet) : '0x...'}
                             </span>
@@ -209,7 +214,7 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
 
                 <div className="flex items-end justify-between pt-4 border-t border-white/[0.04] mt-auto">
                     <div className="flex-1">
-                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
                             {listing.status === 'auction' ? 'Highest Bid' : 'Listed Price'}
                         </p>
                         <p className="text-xl font-black text-white tracking-tighter group-hover:text-cyan-400 transition-colors glow-text truncate pr-2">
@@ -222,7 +227,9 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                             <button
                                 onClick={handleBid}
                                 disabled={isOwner || isSold}
+                                aria-disabled={isOwner || isSold}
                                 className="px-4 py-3 rounded-xl bg-cyan-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-cyan-400 disabled:opacity-50"
+                                aria-label="Place Bid on this Property"
                             >
                                 <Gavel size={12} className="inline mr-2" />
                                 Place Bid
@@ -231,14 +238,15 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                             <button
                                 onClick={handleBuy}
                                 disabled={isBuying || buying || isSold || isOwner}
+                                aria-disabled={isBuying || buying || isSold || isOwner}
                                 className={cn(
-                                    "relative flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-500 overflow-hidden shrink-0 whitespace-nowrap shadow-xl",
-                                    (isSold || isOwner) ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-white text-black hover:bg-cyan-50 hover:shadow-cyan-500/20"
+                                    (isSold || isOwner) ? "bg-slate-800 text-slate-300 cursor-not-allowed" : "bg-white text-black hover:bg-cyan-50 hover:shadow-cyan-500/20"
                                 )}
+                                aria-label={isSold ? "Property Sold" : isOwner ? "Your Property" : "Buy Property Now"}
                             >
                                 {(isBuying || buying) ? <Loader2 size={12} className="animate-spin" /> : <Wallet size={12} />}
                                 <span className="relative z-10">
-                                    {(isBuying || buying) ? 'PROCESSING' : isSold ? 'SOLD' : isOwner ? 'YOUR ASSET' : 'ACQUIRE'}
+                                    {(isBuying || buying) ? 'PROCESSING' : isSold ? 'SOLD' : isOwner ? 'YOUR ASSET' : 'BUY NOW'}
                                 </span>
                             </button>
                         ) : isOwner ? (
@@ -248,7 +256,7 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                                 </button>
                             </Link>
                         ) : (
-                            <button disabled className="px-4 py-3 rounded-xl bg-slate-800 text-slate-600 text-[9px] font-black uppercase tracking-widest cursor-not-allowed">
+                            <button disabled className="px-4 py-3 rounded-xl bg-slate-800 text-slate-400 text-[9px] font-black uppercase tracking-widest cursor-not-allowed">
                                 Not for Sale
                             </button>
                         )}
@@ -297,7 +305,7 @@ export default function MarketplacePage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <Gavel size={16} className="text-cyan-500 animate-pulse" />
-                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.3em]">AI-Valued Auction Platform</span>
+                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em]">Verified Property Auction</span>
                     </div>
                     <div className="space-y-2">
                         <h1 className="text-5xl font-black text-white tracking-tighter text-gradient leading-none">Marketplace</h1>
@@ -306,16 +314,18 @@ export default function MarketplacePage() {
                 </div>
 
                 {/* Filter Tabs */}
-                <div className="glass-panel p-2 rounded-[1.5rem] flex gap-2 border border-white/[0.06] shadow-2xl">
+                <div role="tablist" aria-label="Market Categories" className="glass-panel p-2 rounded-[1.5rem] flex gap-2 border border-white/[0.06] shadow-2xl">
                     {categories.map(({ id, label, icon: Icon }) => (
                         <button
                             key={id}
+                            role="tab"
+                            aria-selected={filter === id}
                             onClick={() => setFilter(id as any)}
                             className={cn(
                                 "relative flex items-center gap-3 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300",
                                 filter === id
                                     ? "text-black bg-white shadow-lg"
-                                    : "text-slate-500 hover:text-white hover:bg-white/[0.04]"
+                                    : "text-slate-300 hover:text-white hover:bg-white/[0.04]"
                             )}
                         >
                             <Icon size={14} />
@@ -330,28 +340,28 @@ export default function MarketplacePage() {
                 <div className="glass-panel p-5 rounded-2xl border border-white/[0.06]">
                     <div className="flex items-center gap-2 mb-2">
                         <Brain size={14} className="text-cyan-400" />
-                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">AI Confidence</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Confidence Score</span>
                     </div>
                     <p className="text-2xl font-black text-white">{stats.avgConfidence}%</p>
                 </div>
                 <div className="glass-panel p-5 rounded-2xl border border-white/[0.06]">
                     <div className="flex items-center gap-2 mb-2">
                         <Flame size={14} className="text-amber-400" />
-                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Zone A (Premium)</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Zone A (Premium)</span>
                     </div>
                     <p className="text-2xl font-black text-amber-400">{stats.tierA}</p>
                 </div>
                 <div className="glass-panel p-5 rounded-2xl border border-white/[0.06]">
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingUp size={14} className="text-cyan-400" />
-                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Zone B (Growth)</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Zone B (Growth)</span>
                     </div>
                     <p className="text-2xl font-black text-cyan-400">{stats.tierB}</p>
                 </div>
                 <div className="glass-panel p-5 rounded-2xl border border-white/[0.06]">
                     <div className="flex items-center gap-2 mb-2">
                         <ShoppingBag size={14} className="text-slate-400" />
-                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Total Listed</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Listed</span>
                     </div>
                     <p className="text-2xl font-black text-white">{stats.total}</p>
                 </div>
@@ -377,7 +387,7 @@ export default function MarketplacePage() {
                         <div className="absolute inset-0 border border-cyan-500/10 rounded-full animate-pulse" />
                     </div>
                     <h2 className="text-2xl font-black text-slate-300 tracking-tight">Market Offline</h2>
-                    <p className="text-slate-500 mt-2 max-w-xs text-center font-medium">No assets match current search criteria.</p>
+                    <p className="text-slate-300 mt-2 max-w-xs text-center font-medium">No assets match current search criteria.</p>
                     <button
                         onClick={() => setFilter('all')}
                         className="mt-10 px-8 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all"
@@ -401,18 +411,18 @@ export default function MarketplacePage() {
                             <div key={i} className="w-10 h-10 rounded-full border-2 border-[#0B0F1A] bg-slate-800" />
                         ))}
                     </div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        <span className="text-white">1,204</span> ACTIVE TRADERS
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                        <span className="text-white">1,204</span> ACTIVE USERS
                     </p>
                 </div>
                 <div className="flex items-center gap-8">
                     <div className="text-right">
-                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Network</p>
-                        <p className="text-sm font-black text-white">Polygon Amoy</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Network</p>
+                        <p className="text-sm font-black text-white">Polygon Amoy + Algorand TestNet</p>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="text-right">
-                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">System Status</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">System Status</p>
                         <div className="flex items-center justify-end gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
                             <p className="text-[10px] font-black text-emerald-400 tracking-widest">OPTIMAL</p>

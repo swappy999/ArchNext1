@@ -5,8 +5,21 @@ const path = require("path");
 async function main() {
     console.log("Deploying PropertyAuction contract...");
 
+    const dirFrontendContracts = path.join(__dirname, "../../frontend/contracts");
+    const tokenAddrPath = path.join(dirFrontendContracts, "PropertyBiddingToken-address.json");
+    let tokenAddress = "0x0000000000000000000000000000000000000000";
+
+    if (fs.existsSync(tokenAddrPath)) {
+        const tokenData = JSON.parse(fs.readFileSync(tokenAddrPath, "utf8"));
+        tokenAddress = tokenData.address;
+    }
+
+    if (!tokenAddress || tokenAddress === "0x0000000000000000000000000000000000000000") {
+        throw new Error("PropertyBiddingToken is not deployed! Please deploy the token first.");
+    }
+
     const PropertyAuction = await hre.ethers.getContractFactory("PropertyAuction");
-    const auction = await PropertyAuction.deploy();
+    const auction = await PropertyAuction.deploy(tokenAddress);
     await auction.waitForDeployment();
 
     const auctionAddress = await auction.getAddress();

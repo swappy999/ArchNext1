@@ -28,7 +28,7 @@ function StatusIcon({ status }: { status: string }) {
         case 'FAIL':
             return <XCircle size={14} className="text-rose-400" />
         default:
-            return <Shield size={14} className="text-slate-500" />
+            return <Shield size={14} className="text-slate-300" />
     }
 }
 
@@ -53,6 +53,14 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
     const createAuction = useAuctionStore(s => s.createAuction)
 
     // Run verification on mount
+    useEffect(() => {
+        const handleDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose()
+        }
+        document.addEventListener('keydown', handleDown)
+        return () => document.removeEventListener('keydown', handleDown)
+    }, [onClose])
+
     useEffect(() => {
         runVerification()
     }, [])
@@ -161,10 +169,10 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                         <Shield size={18} className="text-cyan-400" />
                         <div>
                             <h2 className="text-lg font-black text-white tracking-tight">AI Verification & Listing</h2>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{asset.title}</p>
+                            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{asset.title}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-slate-500 hover:text-white transition-colors">
+                    <button onClick={onClose} aria-label="Close Modal" className="p-2 rounded-xl hover:bg-white/5 text-slate-300 hover:text-white transition-colors">
                         <X size={18} />
                     </button>
                 </div>
@@ -178,7 +186,7 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                 <div className="absolute inset-0 bg-cyan-500/20 blur-2xl rounded-full" />
                             </div>
                             <p className="text-sm font-black text-white uppercase tracking-widest">Running AI Verification</p>
-                            <p className="text-xs text-slate-500">Analyzing location, price, and market data...</p>
+                            <p className="text-xs text-slate-300">Analyzing location, price, and market data...</p>
                         </div>
                     ) : (
                         <>
@@ -199,7 +207,7 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
 
                             {/* Individual Checks */}
                             <div className="space-y-2">
-                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-3">Verification Checks</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Verification Checks</p>
                                 {Object.entries(checks).map(([key, check]: [string, any]) => (
                                     <div key={key} className={cn(
                                         "flex items-center justify-between p-3 rounded-xl border",
@@ -223,15 +231,15 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                     </div>
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Per Sq.Ft</p>
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Per Sq.Ft</p>
                                             <p className="text-lg font-black text-white">₹{aiVal.predicted_price_per_sqft?.toLocaleString('en-IN')}</p>
                                         </div>
                                         <div className="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Total Est.</p>
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Est.</p>
                                             <p className="text-lg font-black text-emerald-400">₹{(aiVal.total_estimated_value / 10000000)?.toFixed(2)} Cr</p>
                                         </div>
                                         <div className="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Confidence</p>
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Confidence</p>
                                             <p className="text-lg font-black text-cyan-400">{aiVal.confidence}%</p>
                                         </div>
                                     </div>
@@ -243,7 +251,7 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                             { label: 'Demand', value: aiVal.demand_score, color: 'bg-amber-500' },
                                         ].map(({ label, value, color }) => (
                                             <div key={label} className="space-y-1">
-                                                <div className="flex justify-between text-[8px] font-bold text-slate-500">
+                                                <div className="flex justify-between text-[8px] font-bold text-slate-300">
                                                     <span>{label}</span>
                                                     <span>{value}%</span>
                                                 </div>
@@ -266,7 +274,7 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                 <>
                                     {/* Listing Type Selector */}
                                     <div className="space-y-3">
-                                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Listing Type</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Listing Type</p>
                                         <div className="grid grid-cols-2 gap-3">
                                             <button
                                                 onClick={() => setListingType('fixed')}
@@ -277,9 +285,9 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                                         : 'border-white/[0.06] hover:border-white/10'
                                                 )}
                                             >
-                                                <Tag size={16} className={listingType === 'fixed' ? 'text-cyan-400' : 'text-slate-600'} />
-                                                <p className={cn("text-sm font-black mt-2", listingType === 'fixed' ? 'text-white' : 'text-slate-500')}>Fixed Price</p>
-                                                <p className="text-[9px] font-bold text-slate-600 mt-1">Set a price, buyers purchase directly</p>
+                                                <Tag size={16} className={listingType === 'fixed' ? 'text-cyan-400' : 'text-slate-400'} />
+                                                <p className={cn("text-sm font-black mt-2", listingType === 'fixed' ? 'text-white' : 'text-slate-300')}>Fixed Price</p>
+                                                <p className="text-[9px] font-bold text-slate-400 mt-1">Set a price, buyers purchase directly</p>
                                             </button>
                                             <button
                                                 onClick={() => setListingType('auction')}
@@ -290,23 +298,24 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                                         : 'border-white/[0.06] hover:border-white/10'
                                                 )}
                                             >
-                                                <Gavel size={16} className={listingType === 'auction' ? 'text-cyan-400' : 'text-slate-600'} />
-                                                <p className={cn("text-sm font-black mt-2", listingType === 'auction' ? 'text-white' : 'text-slate-500')}>Start Auction</p>
-                                                <p className="text-[9px] font-bold text-slate-600 mt-1">Set reserve price, accept bids</p>
+                                                <Gavel size={16} className={listingType === 'auction' ? 'text-cyan-400' : 'text-slate-400'} />
+                                                <p className={cn("text-sm font-black mt-2", listingType === 'auction' ? 'text-white' : 'text-slate-300')}>Start Auction</p>
+                                                <p className="text-[9px] font-bold text-slate-400 mt-1">Set reserve price, accept bids</p>
                                             </button>
                                         </div>
                                     </div>
 
                                     {/* Price input */}
                                     <div className="space-y-2">
-                                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
+                                        <label htmlFor="price-input" className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
                                             {listingType === 'auction' ? `Reserve Price (${asset.is_nft ? 'POL' : '₹'})` : `Asking Price (${asset.is_nft ? 'POL' : '₹'})`}
-                                        </p>
+                                        </label>
                                         <div className="relative group/input">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-600">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">
                                                 {asset.is_nft ? 'POL' : '₹'}
                                             </span>
                                             <input
+                                                id="price-input"
                                                 type="number"
                                                 value={askingPrice}
                                                 onChange={(e) => setAskingPrice(e.target.value)}
@@ -328,7 +337,7 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                     {/* Duration (auction only) */}
                                     {listingType === 'auction' && (
                                         <div className="space-y-2">
-                                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Auction Duration</p>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Auction Duration</p>
                                             <div className="grid grid-cols-4 gap-2">
                                                 {[6, 12, 24, 48].map(h => (
                                                     <button
@@ -338,7 +347,7 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                                             "py-2.5 rounded-xl text-xs font-black border transition-all",
                                                             durationHours === h
                                                                 ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
-                                                                : 'border-white/[0.06] text-slate-500 hover:text-white'
+                                                                : 'border-white/[0.06] text-slate-300 hover:text-white'
                                                         )}
                                                     >
                                                         {h}h
@@ -365,7 +374,7 @@ function ListingModal({ asset, onClose }: { asset: any, onClose: () => void }) {
                                 <div className="p-4 rounded-2xl border border-rose-500/20 bg-rose-500/5 text-center">
                                     <XCircle size={24} className="text-rose-400 mx-auto mb-2" />
                                     <p className="text-sm font-black text-rose-400">Listing Blocked</p>
-                                    <p className="text-xs text-slate-500 mt-1">Property failed verification. Please resolve the issues above.</p>
+                                    <p className="text-xs text-slate-300 mt-1">Property failed verification. Please resolve the issues above.</p>
                                 </div>
                             )}
                         </>
@@ -394,7 +403,7 @@ function AssetCard({ asset, index, onListClick }: { asset: any, index: number, o
             <div className="flex items-start justify-between mb-8">
                 <div className="w-14 h-14 rounded-2xl bg-[#0B0F1A] border border-white/[0.05] flex items-center justify-center shadow-xl group-hover:border-cyan-500/20 transition-colors relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent" />
-                    <Building2 size={24} className="text-slate-500 group-hover:text-cyan-400 transition-colors relative z-10" />
+                    <Building2 size={24} className="text-slate-300 group-hover:text-cyan-400 transition-colors relative z-10" />
                 </div>
                 <div className="flex flex-col items-end gap-2">
                     {asset.is_nft && (
@@ -409,10 +418,10 @@ function AssetCard({ asset, index, onListClick }: { asset: any, index: number, o
             </div>
 
             <div className="space-y-1.5 mb-8">
-                <h3 className="text-lg font-black text-white truncate tracking-tight group-hover:text-cyan-50 transition-colors">{asset.title || 'Institutional Node'}</h3>
+                <h3 className="text-lg font-black text-white truncate tracking-tight group-hover:text-cyan-50 transition-colors">{asset.title || 'Property Asset'}</h3>
                 <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
-                    <p className="text-xs font-bold text-slate-500 group-hover:text-slate-400 transition-colors uppercase tracking-tight">
+                    <p className="text-xs font-bold text-slate-300 group-hover:text-slate-400 transition-colors uppercase tracking-tight">
                         {asset.area || (typeof asset.location === 'string' ? asset.location : 'KOLKATA NETWORK')}
                     </p>
                 </div>
@@ -422,14 +431,14 @@ function AssetCard({ asset, index, onListClick }: { asset: any, index: number, o
                 {/* Values Row */}
                 <div className="flex items-end justify-between">
                     <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Live Valuation</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Value</p>
                         <p className="text-2xl font-black text-white tracking-tighter group-hover:text-cyan-400 transition-colors">
                             {asset.price_listed_matic && asset.price_listed_matic > 0 ? `${asset.price_listed_matic} POL` : formatCurrency(asset.current_value || 0)}
                         </p>
                     </div>
 
                     <div className="space-y-1 text-right">
-                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Purchased For</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Purchased For</p>
                         <p className="text-lg font-black text-slate-400 tracking-tighter group-hover:text-slate-300 transition-colors">
                             {asset.purchase_price_matic && asset.purchase_price_matic > 0 ? `${asset.purchase_price_matic} POL` : formatCurrency(asset.purchase_price || 0)}
                         </p>
@@ -441,7 +450,8 @@ function AssetCard({ asset, index, onListClick }: { asset: any, index: number, o
                         "flex items-center gap-1 px-4 py-2 rounded-2xl border transition-all duration-500 text-[11px] font-black tracking-widest uppercase",
                         isPositive ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400' : 'bg-rose-500/5 border-rose-500/10 text-rose-400'
                     )}>
-                        {isPositive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                        {isPositive ? <ArrowUpRight size={14} aria-hidden="true" /> : <ArrowDownRight size={14} aria-hidden="true" />}
+                        <span className="sr-only">{isPositive ? 'Positive Return' : 'Negative Return'}</span>
                         {gainPct}%
                     </div>
 
@@ -449,6 +459,7 @@ function AssetCard({ asset, index, onListClick }: { asset: any, index: number, o
                     <button
                         onClick={onListClick}
                         className="bg-white text-black hover:bg-cyan-400 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 flex items-center gap-2"
+                        aria-label="List or Auction this Asset"
                     >
                         <Gavel size={12} />
                         List / Auction
@@ -480,9 +491,9 @@ export default function PortfolioPage() {
     const isPositive = totalGain >= 0
 
     const mainStats = [
-        { label: 'Network Assets', value: formatCurrency(total_current_value), icon: Briefcase, color: 'text-white' },
-        { label: 'Capital Deployed', value: formatCurrency(total_invested), icon: Wallet, color: 'text-slate-400' },
-        { label: 'Aggregate Return', value: `${isPositive ? '+' : ''}${formatCurrency(totalGain)}`, icon: TrendingUp, color: isPositive ? 'text-emerald-400' : 'text-rose-400', secondary: `${totalGainPct}% Total ROI` },
+        { label: 'Total Value', value: formatCurrency(total_current_value), icon: Briefcase, color: 'text-white' },
+        { label: 'Investment', value: formatCurrency(total_invested), icon: Wallet, color: 'text-slate-400' },
+        { label: 'Total Return', value: `${isPositive ? '+' : ''}${formatCurrency(totalGain)}`, icon: TrendingUp, color: isPositive ? 'text-emerald-400' : 'text-rose-400', secondary: `${totalGainPct}% ROI` },
     ]
 
     return (
@@ -492,11 +503,11 @@ export default function PortfolioPage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-[0_0_10px_#06b6d4] animate-pulse" />
-                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.3em]">Institutional Portfolio</span>
+                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.3em]">Property Portfolio</span>
                     </div>
                     <div className="space-y-2">
-                        <h1 className="text-5xl font-black text-white tracking-tighter text-gradient leading-none">Intelligence Hub</h1>
-                        <p className="text-slate-400 max-w-xl text-lg font-medium">Detailed synthesis of your global on-chain urban asset portfolio and predictive yield analytics.</p>
+                        <h1 className="text-5xl font-black text-white tracking-tighter text-gradient leading-none">Portfolio</h1>
+                        <p className="text-slate-400 max-w-xl text-lg font-medium">Overview of your property assets, performance, and active market engagement.</p>
                     </div>
                 </div>
 
@@ -504,13 +515,14 @@ export default function PortfolioPage() {
                     <Link
                         href="/properties/create"
                         className="glass-panel px-6 py-3.5 rounded-2xl flex items-center gap-4 border-cyan-500/20 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/10 transition-all shadow-2xl active:scale-95"
+                        aria-label="Add New Property Asset"
                     >
                         <Plus size={16} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Add New Asset</span>
                     </Link>
                     <div className="glass-panel px-6 py-3.5 rounded-2xl flex items-center gap-4 border-white/[0.04] shadow-2xl">
-                        <History size={16} className="text-slate-500" />
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Update: Just Now</span>
+                        <History size={16} className="text-slate-300" />
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Last Update: Just Now</span>
                     </div>
                 </div>
             </div>
@@ -532,7 +544,7 @@ export default function PortfolioPage() {
                         </div>
 
                         <div className="space-y-2 relative z-10">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{stat.label}</p>
+                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">{stat.label}</p>
                             {loading ? (
                                 <div className="h-10 w-40 bg-white/[0.03] rounded-xl animate-shimmer relative overflow-hidden" />
                             ) : (
@@ -541,7 +553,7 @@ export default function PortfolioPage() {
                                         {stat.value}
                                     </h3>
                                     {stat.secondary && (
-                                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{stat.secondary}</p>
+                                        <p className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">{stat.secondary}</p>
                                     )}
                                 </div>
                             )}
@@ -561,12 +573,12 @@ export default function PortfolioPage() {
                         </div>
                         <div>
                             <h2 className="text-2xl font-black text-white tracking-tight">Active Holdings</h2>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">{assets.length} NODES IDENTIFIED</p>
+                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-0.5">{assets.length} PROPERTIES OWNED</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <div className="glass-panel px-4 py-2 rounded-xl flex items-center gap-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        <div className="glass-panel px-4 py-2 rounded-xl flex items-center gap-3 text-[10px] font-black text-slate-300 uppercase tracking-widest">
                             <Activity size={14} className="text-emerald-500" />
                             Efficiency: 98.2%
                         </div>
@@ -590,8 +602,8 @@ export default function PortfolioPage() {
                         <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mb-6 relative">
                             <Briefcase size={24} className="text-slate-800" />
                         </div>
-                        <h2 className="text-lg font-black text-slate-300 tracking-tight">Zero Network Holdings</h2>
-                        <p className="text-slate-500 mt-1 max-w-xs text-center font-medium text-xs">Initialize your capital deployment via the marketplace.</p>
+                        <h2 className="text-lg font-black text-slate-300 tracking-tight">No Assets Owned</h2>
+                        <p className="text-slate-300 mt-1 max-w-xs text-center font-medium text-xs">Start investing via the marketplace.</p>
                     </motion.div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -615,12 +627,12 @@ export default function PortfolioPage() {
                     </div>
                     <div>
                         <h2 className="text-2xl font-black text-white tracking-tight">Active Auctions</h2>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Properties you are currently auctioning</p>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Properties you are currently auctioning</p>
                     </div>
                 </div>
 
                 {active_auctions.length === 0 ? (
-                    <div className="py-12 text-center glass-panel rounded-3xl border border-white/[0.04] text-slate-600 text-[10px] font-black uppercase tracking-widest">
+                    <div className="py-12 text-center glass-panel rounded-3xl border border-white/[0.04] text-slate-400 text-[10px] font-black uppercase tracking-widest">
                         No active auctions.
                     </div>
                 ) : (
@@ -637,7 +649,7 @@ export default function PortfolioPage() {
                                     <h3 className="text-white font-black truncate pr-10 mb-2">Auction #{auction.id.slice(-6).toUpperCase()}</h3>
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[9px] font-black text-slate-500 uppercase">Current Bid</span>
+                                            <span className="text-[9px] font-black text-slate-300 uppercase">Current Bid</span>
                                             <span className="text-lg font-black text-cyan-400">₹{auction.current_bid?.toLocaleString('en-IN') || 0}</span>
                                         </div>
                                         <div className="flex justify-between items-center px-3 py-2 bg-white/[0.03] rounded-xl">
@@ -659,13 +671,13 @@ export default function PortfolioPage() {
                         <Target size={20} className="text-emerald-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-black text-white tracking-tight">Neural Bids</h2>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Your active bids across the network</p>
+                        <h2 className="text-2xl font-black text-white tracking-tight">Active Bids</h2>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Your current bids on auction properties</p>
                     </div>
                 </div>
 
                 {my_bids.length === 0 ? (
-                    <div className="py-12 text-center glass-panel rounded-3xl border border-white/[0.04] text-slate-600 text-[10px] font-black uppercase tracking-widest">
+                    <div className="py-12 text-center glass-panel rounded-3xl border border-white/[0.04] text-slate-400 text-[10px] font-black uppercase tracking-widest">
                         No active network bids.
                     </div>
                 ) : (
@@ -678,7 +690,7 @@ export default function PortfolioPage() {
                                     className="glass-card p-4 rounded-2xl border border-white/[0.06] flex items-center justify-between group hover:border-emerald-500/30 transition-all cursor-pointer"
                                 >
                                     <div>
-                                        <p className="text-[8px] font-black text-slate-500 uppercase mb-1">Auction Ref</p>
+                                        <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Auction Ref</p>
                                         <p className="text-xs font-black text-white">#{bid.auction_id.slice(-6).toUpperCase()}</p>
                                     </div>
                                     <div className="text-right">
@@ -701,19 +713,19 @@ export default function PortfolioPage() {
                     <div className="space-y-6">
                         <div className="flex items-center gap-3">
                             <Target size={20} className="text-cyan-400" />
-                            <h2 className="text-2xl font-black text-white tracking-tight">Network Intelligence Insight</h2>
+                            <h2 className="text-2xl font-black text-white tracking-tight">Market Insights</h2>
                         </div>
                         <p className="text-slate-400 text-lg font-medium leading-relaxed">
-                            Your portfolio currently exhibits a <span className="text-cyan-400">highly optimized spatial distribution</span> in Kolkata Zone 1. Based on aggregate AI signals, a liquidity rotation towards Zone 2 is projected within the next 14 cycles.
+                            Your portfolio shows a <span className="text-cyan-400">strong concentration</span> in high-growth areas. AI projections suggest increasing demand in surrounding zones over the next few months.
                         </p>
                         <div className="flex items-center gap-6 pt-4">
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Confidence Index</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Confidence Index</p>
                                 <p className="text-xl font-black text-white">94.8%</p>
                             </div>
                             <div className="w-px h-10 bg-white/10" />
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Risk Factor</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Risk Factor</p>
                                 <p className="text-xl font-black text-emerald-400">LOW</p>
                             </div>
                         </div>
@@ -725,7 +737,7 @@ export default function PortfolioPage() {
                             <div className="absolute inset-0 border-[10px] border-white/[0.03] rounded-full" />
                             <div className="absolute inset-0 border-[10px] border-cyan-500/20 rounded-full border-t-cyan-500 animate-[spin_8s_linear_infinite]" />
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">AGGREGATE SCORE</p>
+                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">PORTFOLIO SCORE</p>
                                 <p className="text-6xl font-black text-white tracking-tighter glow-text">9.2</p>
                             </div>
                         </div>

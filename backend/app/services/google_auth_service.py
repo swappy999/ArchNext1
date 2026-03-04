@@ -1,6 +1,6 @@
 from app.integrations.google_oauth import verify_google_token
 from app.repository.user_repo import get_user_by_email, create_user
-from app.core.security import create_access_token, create_refresh_token
+from app.core.verification.utils.crypto_utils import create_access_token, create_refresh_token
 from app.services.auth_service import get_password_hash
 from app.api.routes.auth import Token
 import secrets

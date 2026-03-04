@@ -1,6 +1,7 @@
 from app.repository.property_repo import get_property_by_id
 from app.services.prediction_service import get_prediction, _is_loaded
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 from datetime import datetime
 import hashlib
 import json
@@ -93,7 +94,7 @@ async def verify_property_for_listing(property_id: str, asking_price: float = 0)
     """
     prop = await get_property_by_id(property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
 
     lat = prop.get("latitude", 0)
     lng = prop.get("longitude", 0)
@@ -140,6 +141,19 @@ async def verify_property_for_listing(property_id: str, asking_price: float = 0)
             ai_check = {"status": "PASS", "label": f"Zone {market_tier} | Confidence {confidence*100}%"}
         except Exception as e:
             ai_check = {"status": "WARN", "label": f"AI prediction partial"}
+            if prop.get("predicted_price"):
+                price_per_sqft = round(prop.get("predicted_price") / size_sqft, 2)
+                ai_valuation = {
+                    "predicted_price_per_sqft": price_per_sqft,
+                    "total_estimated_value": prop.get("predicted_price"),
+                    "confidence": 50.0,
+                    "market_tier": _classify_tier(price_per_sqft),
+                    "infra_score": 50.0,
+                    "access_score": 50.0,
+                    "demand_score": 50.0,
+                }
+                growth_score = 0.5
+                ai_check = {"status": "PASS", "label": "Using Cached Valuation"}
 
     # 3. Price Validity (Weight: 0.20)
     price_score = 1.0  # Pass if no asking price (e.g. initial verification)

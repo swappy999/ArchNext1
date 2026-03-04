@@ -177,7 +177,7 @@ export default function DashboardPage() {
 
                         {/* Title Overlay */}
                         <div className="absolute top-5 left-6 z-10">
-                            <h2 className="text-lg font-black text-white tracking-tight">SmartCity Dashboard</h2>
+                            <h2 className="text-lg font-black text-white tracking-tight">System Overview</h2>
                         </div>
 
                         {/* Portfolio Value Card */}
@@ -194,7 +194,7 @@ export default function DashboardPage() {
                         <div className="absolute bottom-4 right-6 z-10">
                             <div className="glass-panel rounded-2xl px-5 py-3 flex items-center gap-4">
                                 <div>
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">AI Investment Score</p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Investment Rating</p>
                                     <div className="flex items-center gap-2">
                                         <span className="text-2xl font-black text-white">{investmentScore}</span>
                                         <span className="text-xs font-bold text-emerald-400">{scoreLabel}</span>
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                     <div className="p-6 space-y-4">
                         {/* Growth Heatmap mini */}
                         <div>
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Growth Heatmap</p>
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Market Growth</p>
                             <MiniChart data={chartData} color="#0ea5e9" height={50} />
                         </div>
 
@@ -236,7 +236,7 @@ export default function DashboardPage() {
                 <Widget className="col-span-12 lg:col-span-7 row-span-2" delay={0.1}>
                     <div className="p-6 h-full flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-black text-white tracking-tight">Interactive Smart Map</h2>
+                            <h2 className="text-lg font-black text-white tracking-tight">Property Map</h2>
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
                                     <Globe size={12} />
@@ -271,7 +271,7 @@ export default function DashboardPage() {
                             {/* "Open Map" hover CTA */}
                             <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/map:opacity-100 transition-opacity z-10">
                                 <div className="px-6 py-3 rounded-2xl bg-cyan-500/20 border border-cyan-500/30 backdrop-blur-sm">
-                                    <span className="text-xs font-black text-cyan-300 uppercase tracking-widest">Open Intelligence Map →</span>
+                                    <span className="text-xs font-black text-cyan-300 uppercase tracking-widest">Open Property Map →</span>
                                 </div>
                             </div>
                         </Link>

@@ -1,5 +1,6 @@
 from app.models.property_model import Property
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 from app.integrations.mapbox import geocode_address
 from app.integrations.blockchain import generate_property_hash
 from app.integrations.property_nft import mint_property_nft
@@ -8,7 +9,7 @@ from app.repository.property_repo import create_property, update_property
 
 def verify_owner(property_data: dict, current_user: dict):
     if str(property_data["owner_id"]) != str(current_user["_id"]):
-        raise HTTPException(status_code=403, detail="Not authorized to edit this property")
+        raise AuthorizationError(detail="Not authorized to edit this property")
 
 async def create_property_service(data, current_user):
 

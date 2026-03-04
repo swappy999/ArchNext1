@@ -5,11 +5,11 @@ import logging
 
 logger = logging.getLogger("middleware")
 
-class AuthMiddleware(BaseHTTPMiddleware):
+class VerifyMiddleware(BaseHTTPMiddleware):
     """
     Global middleware to log requests and execution time.
-    Actual authentication is handled via FastAPI dependencies (OAuth2PasswordBearer).
-    This middleware can be extended for global bans, rate limiting, etc.
+    Actual authentication is handled via FastAPI dependencies (OAuth2PasswordBearer) 
+    in auth_checks.py.
     """
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()

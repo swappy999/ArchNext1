@@ -163,9 +163,9 @@ export default function SettingsPage() {
 
     const prefItems = [
         { key: 'price_alerts' as const, label: 'Price Alerts', desc: 'Notify when property prices change significantly', icon: '📈' },
-        { key: 'zone_intel' as const, label: 'Zone Intelligence', desc: 'New trending zone discoveries', icon: '🗺️' },
-        { key: 'marketplace' as const, label: 'Marketplace Activity', desc: 'New listings and sales in your portfolio area', icon: '🏪' },
-        { key: 'ai_predictions' as const, label: 'AI Predictions', desc: 'New forecast reports for your assets', icon: '🧠' },
+        { key: 'zone_intel' as const, label: 'Zone Alerts', desc: 'New trending zone discoveries', icon: '🗺️' },
+        { key: 'marketplace' as const, label: 'Marketplace Activity', desc: 'New listings and sales in your area', icon: '🏪' },
+        { key: 'ai_predictions' as const, label: 'Market Forecasts', desc: 'New price prediction reports for properties', icon: '🧠' },
     ]
 
     return (
@@ -174,7 +174,7 @@ export default function SettingsPage() {
             <div className="space-y-4 px-2">
                 <div className="flex items-center gap-3">
                     <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-[0_0_10px_#0ea5e9] animate-pulse" />
-                    <span className="text-[11px] font-black text-cyan-400 uppercase tracking-[0.3em]">System Configuration</span>
+                    <span className="text-[11px] font-black text-cyan-400 uppercase tracking-[0.3em]">User Settings</span>
                 </div>
                 <div className="space-y-2">
                     <h1 className="text-5xl font-black text-white tracking-tighter text-gradient leading-none">Settings</h1>
@@ -192,8 +192,8 @@ export default function SettingsPage() {
                                 <User size={22} className="text-cyan-400" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-white tracking-tight">Neural Identity</h2>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Account Configuration</p>
+                                <h2 className="text-xl font-black text-white tracking-tight">User Profile</h2>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Profile Details</p>
                             </div>
                         </div>
 

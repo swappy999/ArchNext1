@@ -13,6 +13,7 @@ interface Property {
     blockchain_verified?: boolean
     owner_id: string
     status?: string
+    chain?: 'polygon' | 'algorand' | 'mock'
 }
 
 interface PropertyState {

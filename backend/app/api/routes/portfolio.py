@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from app.core.dependencies import get_current_user
+from app.core.verification.middlewares.auth_checks import get_current_user
 from app.services.portfolio_service import get_portfolio
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio"])

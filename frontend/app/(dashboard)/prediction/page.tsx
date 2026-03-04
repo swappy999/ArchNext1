@@ -6,7 +6,16 @@ import { Brain, Loader2, TrendingUp, MapPin, Building2, Zap, BarChart2, CheckCir
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { formatCurrency, cn } from '@/lib/utils'
-import PriceTrendGraph from '@/components/cards/PriceTrendGraph'
+import dynamic from 'next/dynamic'
+
+const PriceTrendGraph = dynamic(() => import('@/components/cards/PriceTrendGraph'), {
+    ssr: false,
+    loading: () => (
+        <div className="h-40 w-full glass-panel bg-white/[0.02] animate-pulse rounded-xl flex items-center justify-center border border-white/[0.04]">
+            <div className="text-[10px] font-black text-slate-700 uppercase tracking-widest">LOADING FORECAST DATA...</div>
+        </div>
+    )
+})
 
 interface PredictionResult {
     predicted_price: number
@@ -69,11 +78,11 @@ export default function PredictionPage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_10px_#a855f7] animate-pulse" />
-                        <span className="text-[11px] font-black text-purple-400 uppercase tracking-[0.3em]">ML Cognitive Forecast</span>
+                        <span className="text-[11px] font-black text-purple-400 uppercase tracking-[0.3em]">Market Forecast</span>
                     </div>
                     <div className="space-y-2">
-                        <h1 className="text-5xl font-black text-white tracking-tighter text-gradient leading-none">AI Analytics</h1>
-                        <p className="text-slate-400 max-w-xl text-lg font-medium">Predictive market synthesis using multi-layered urban datasets and neural networking.</p>
+                        <h1 className="text-5xl font-black text-white tracking-tighter text-gradient leading-none">Investment Analytics</h1>
+                        <p className="text-slate-400 max-w-xl text-lg font-medium">Market analysis and price predictions using city-wide data and AI forecasting.</p>
                     </div>
                 </div>
             </div>
@@ -88,13 +97,13 @@ export default function PredictionPage() {
                             <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
                                 <Cpu size={22} className="text-purple-400" />
                             </div>
-                            <h2 className="text-xl font-black text-white tracking-tight uppercase tracking-widest">Node Parameters</h2>
+                            <h2 className="text-xl font-black text-white tracking-tight uppercase tracking-widest">Search Parameters</h2>
                         </div>
 
                         <form onSubmit={handlePredict} className="space-y-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Spatial Node</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Area / Neighborhood</label>
                                     <select
                                         value={form.area}
                                         onChange={e => setForm({ ...form, area: e.target.value })}
@@ -105,7 +114,7 @@ export default function PredictionPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Asset Type</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Property Type</label>
                                     <select
                                         value={form.property_type}
                                         onChange={e => setForm({ ...form, property_type: e.target.value })}
@@ -116,7 +125,7 @@ export default function PredictionPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Geometric Area (Sqft)</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Size (Sqft)</label>
                                     <input
                                         type="number"
                                         min={200}
@@ -128,7 +137,7 @@ export default function PredictionPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Unit Configuration</label>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Bedrooms</label>
                                     <input
                                         type="number"
                                         min={1}
@@ -147,7 +156,7 @@ export default function PredictionPage() {
                             >
                                 <span className="relative z-10 flex items-center justify-center gap-3">
                                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Brain size={18} />}
-                                    {loading ? 'SYNTHESIZING...' : 'EXECUTE PREDICTION'}
+                                    {loading ? 'PREDICTING...' : 'RUN FORECAST'}
                                 </span>
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                             </button>
@@ -182,8 +191,8 @@ export default function PredictionPage() {
                                         <Loader2 size={40} className="text-purple-400 animate-spin" />
                                     </div>
                                 </div>
-                                <h3 className="text-2xl font-black text-white tracking-tight uppercase tracking-widest">Synthesizing Signals</h3>
-                                <p className="text-slate-500 mt-4 max-w-xs font-medium">Aggregating historical price action, infrastructure developments, and macro-economic factors...</p>
+                                <h3 className="text-2xl font-black text-white tracking-tight uppercase tracking-widest">Predicting Market Trends</h3>
+                                <p className="text-slate-500 mt-4 max-w-xs font-medium">Analyzing historical data, infrastructure developments, and market signals...</p>
 
                                 <div className="mt-12 w-full max-w-xs space-y-4">
                                     {[0.8, 0.6, 0.9, 0.4].map((w, i) => (
@@ -214,7 +223,7 @@ export default function PredictionPage() {
                                                 <CheckCircle size={20} className="text-emerald-400" />
                                             </div>
                                             <div>
-                                                <h2 className="text-2xl font-black text-white tracking-tight">Synthesis Report</h2>
+                                                <h2 className="text-2xl font-black text-white tracking-tight">Market Analysis Report</h2>
                                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">COMPUTED JUST NOW</p>
                                             </div>
                                         </div>
@@ -227,7 +236,7 @@ export default function PredictionPage() {
                                     {/* Major Value Card */}
                                     <div className="p-10 rounded-[2.5rem] bg-[#05070A]/80 border border-white/[0.06] text-center shadow-2xl group-hover/result:border-purple-500/20 transition-all duration-500 relative overflow-hidden">
                                         <div className="absolute inset-0 grid-bg opacity-10" />
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 relative z-10">Predicted Market Valuation</p>
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 relative z-10">Predicted Market Value</p>
                                         <h3 className="text-6xl font-black text-white tracking-tighter glow-text relative z-10">
                                             {formatCurrency(result.predicted_price)}
                                         </h3>
@@ -298,7 +307,7 @@ export default function PredictionPage() {
                                         DOWNLOAD PDF REPORT
                                     </button>
                                     <button className="py-5 rounded-2xl bg-cyan-600 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl hover:bg-cyan-500 transition-all">
-                                        ACQUIRE SIMILAR ASSETS
+                                        BUY PROPERTIES
                                     </button>
                                 </div>
                             </motion.div>
@@ -307,8 +316,8 @@ export default function PredictionPage() {
                                 <div className="w-20 h-20 rounded-[1.5rem] bg-white/[0.02] border border-white/[0.06] flex items-center justify-center mb-8">
                                     <Brain size={36} className="text-slate-800" />
                                 </div>
-                                <h3 className="text-2xl font-black text-slate-400 tracking-tight uppercase tracking-[0.2em]">Engine Standby</h3>
-                                <p className="text-slate-600 mt-4 max-w-xs font-medium">Configure node parameters and execute deep synthesis to generate an AI market forecast.</p>
+                                <h3 className="text-2xl font-black text-slate-400 tracking-tight uppercase tracking-[0.2em]">System Ready</h3>
+                                <p className="text-slate-600 mt-4 max-w-xs font-medium">Configure parameters and run a forecast to generate an AI market report.</p>
 
                                 <div className="mt-12 flex items-center gap-6">
                                     <div className="flex items-center gap-2">

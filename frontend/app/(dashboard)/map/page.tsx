@@ -450,15 +450,15 @@ export default function MapPage() {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Scan size={14} className="text-cyan-500 animate-pulse" />
-                        <span className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.3em]">
-                            Intelligence Operating System
+                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em]">
+                            Property Management System
                         </span>
                     </div>
                     <h1 className="text-4xl font-black text-white tracking-tighter leading-none">
-                        City Intelligence Map
+                        Property Map
                     </h1>
                     <p className="text-slate-500 mt-1.5 text-sm font-medium">
-                        GPU-accelerated geospatial synthesis · deck.gl + MapLibre GL
+                        Real-time property visualization · deck.gl + MapLibre GL
                     </p>
                 </div>
 
@@ -466,7 +466,7 @@ export default function MapPage() {
                     <div className="glass-panel px-4 py-2 rounded-2xl flex items-center gap-4">
                         <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Neural Sync</span>
+                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Data Synced</span>
                         </div>
                         <div className="h-4 w-px bg-white/10" />
                         {loading ? (
@@ -475,10 +475,10 @@ export default function MapPage() {
                             </div>
                         ) : (
                             <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                    {propertyCount} NODES
+                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
+                                    {propertyCount} PROPERTIES
                                 </span>
-                                <span className="text-[10px] font-black text-cyan-500/60 uppercase tracking-widest">
+                                <span className="text-[11px] font-black text-cyan-500/60 uppercase tracking-widest">
                                     {activeCount} LAYERS
                                 </span>
                             </div>
@@ -517,8 +517,8 @@ export default function MapPage() {
                                 className="text-center"
                             >
                                 <Scan size={32} className="text-cyan-500 mx-auto mb-3" />
-                                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.4em]">
-                                    Initializing Intelligence
+                                <p className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.3em]">
+                                    Initializing Map
                                 </p>
                             </motion.div>
                         </motion.div>
@@ -602,8 +602,8 @@ export default function MapPage() {
                                     <div className="flex items-center justify-between mb-5 relative z-10">
                                         <div className="flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                                            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 border-b border-white/[0.1] pb-0.5">
-                                                {displayZone.name || 'City Intelligence'}
+                                            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 border-b border-white/[0.1] pb-0.5">
+                                                {displayZone.name || 'Zone Information'}
                                             </span>
                                         </div>
                                         <div className={cn(
@@ -699,7 +699,7 @@ export default function MapPage() {
                                                 }
                                             }}
                                             className="w-full py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[9px] font-black text-cyan-400 uppercase tracking-[0.15em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all flex items-center justify-center gap-2">
-                                            <Zap size={12} /> Deep Scan
+                                            <Zap size={12} /> View Details
                                             <ChevronRight size={12} />
                                         </button>
                                     </div>

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import { Building2, Brain, ArrowUpRight, Activity, Lock, FileCheck, Users, Wallet, TrendingUp } from 'lucide-react'
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import dynamic from 'next/dynamic'
@@ -138,7 +138,7 @@ export default function LandingPage() {
                     className="hidden lg:flex items-center gap-10 relative z-10"
                 >
                     {[
-                        { name: 'Intelligence Map', href: '/map' },
+                        { name: 'Property Map', href: '/map' },
                         { name: 'Marketplace', href: '/marketplace' },
                         { name: 'Ecosystem', href: '/ecosystem' }
                     ].map((item) => (
@@ -164,12 +164,12 @@ export default function LandingPage() {
                 >
                     {isMounted ? (
                         <>
-                            <button onClick={() => router.push(user ? '/dashboard' : '/auth/signin')} className="text-[13px] font-bold uppercase tracking-[0.25em] text-cyan-400 hover:text-cyan-300 transition-all">
+                            <button onClick={() => router.push(user ? '/dashboard' : '/auth/signin')} className="text-[14px] font-bold uppercase tracking-[0.2em] text-cyan-400 hover:text-cyan-300 transition-all">
                                 {user ? 'DASHBOARD' : 'LOGIN'}
                             </button>
                             {!user && (
-                                <button onClick={() => router.push('/auth/signup')} className="relative group px-4 py-2.5 rounded-full overflow-hidden border border-white/10 hover:bg-black/30 hover:text-white hover:border-white transition-all duration-300 bg-white text-black">
-                                    <span className="relative z-10 text-[13px] font-black uppercase tracking-[0.3em]">SIGN UP</span>
+                                <button onClick={() => router.push('/auth/signup')} className="relative group px-5 py-3 rounded-full overflow-hidden border border-white/10 hover:bg-black/30 hover:text-white hover:border-white transition-all duration-300 bg-white text-black">
+                                    <span className="relative z-10 text-[14px] font-black uppercase tracking-[0.2em]">SIGN UP</span>
                                 </button>
                             )}
                         </>
@@ -202,7 +202,12 @@ export default function LandingPage() {
                             <pointLight position={[-10, 3, 6]} intensity={2} distance={20} color="#00c8ff" />
                             <pointLight position={[0, 8, -20]} intensity={1.5} distance={35} color="#1a3a6e" />
 
-                            <React.Suspense fallback={null}>
+                            <React.Suspense fallback={
+                                <mesh position={[0, 0, 0]}>
+                                    <sphereGeometry args={[0.1, 16, 16]} />
+                                    <meshStandardMaterial color="#0bd0e6" emissive="#0bd0e6" emissiveIntensity={2} />
+                                </mesh>
+                            }>
                                 <Model />
                                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, 0]} receiveShadow>
                                     <planeGeometry args={[200, 200]} />
@@ -276,9 +281,9 @@ export default function LandingPage() {
                         <motion.span
                             animate={{ opacity: [0.3, 0.6, 0.3] }}
                             transition={{ duration: 2, repeat: Infinity }}
-                            className="text-[10px] font-black text-slate-500 uppercase tracking-[0.8em]"
+                            className="text-[11px] font-black text-slate-500 uppercase tracking-[0.6em]"
                         >
-                            System_Scan
+                            Loading_Map
                         </motion.span>
                         <div className="w-[1.5px] h-20 relative overflow-hidden rounded-full">
                             <div className="absolute inset-0 bg-white/10" />
@@ -369,7 +374,7 @@ export default function LandingPage() {
                             />
                         </div>
                         <p className="text-sm text-slate-600 max-w-xs font-medium leading-relaxed">
-                            Architecting the next generation of institutional urban intelligence and asset ownership.
+                            The next generation of property investment and asset ownership.
                         </p>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-20">

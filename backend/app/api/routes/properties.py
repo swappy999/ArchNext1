@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from app.core.dependencies import get_current_user
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
+from fastapi import Query
+from app.core.verification.middlewares.auth_checks import get_current_user
 from app.services.property_service import create_property_service, verify_owner
 from app.schemas.property_schema import PropertyCreate, PropertyResponse, PropertyUpdate
 from typing import List, Optional
@@ -42,7 +44,13 @@ async def filter(
 async def get_property(id: str):
     prop = await get_property_by_id(id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
+    
+    # Enrich with AI valuation if coordinates exist
+    if prop.get("latitude") and prop.get("longitude"):
+        from app.services.marketplace_service import _get_ai_valuation
+        prop["ai_valuation"] = await _get_ai_valuation(prop["latitude"], prop["longitude"])
+        
     return prop
 
 @router.put("/{id}", response_model=dict)
@@ -54,7 +62,7 @@ async def update_property_endpoint(
     # Check existence
     prop = await get_property_by_id(id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
     
     # Verify Owner
     verify_owner(prop, current_user)
@@ -81,7 +89,7 @@ async def delete_property_endpoint(
 ):
     prop = await get_property_by_id(id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
         
     verify_owner(prop, current_user)
     

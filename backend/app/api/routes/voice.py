@@ -13,7 +13,7 @@ async def transcribe(audio: UploadFile = File(...)):
     and returns transcribed text.
     """
     if not audio:
-        raise HTTPException(status_code=400, detail="No audio file provided")
+        raise ValidationError(detail="No audio file provided")
 
     try:
         audio_bytes = await audio.read()

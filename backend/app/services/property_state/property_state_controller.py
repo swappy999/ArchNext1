@@ -1,5 +1,6 @@
 import logging
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 from datetime import datetime
 from app.repository.property_repo import get_property_by_id, update_property
 from .property_state_machine import validate_transition, PropertyEvent
@@ -17,7 +18,7 @@ async def update_property_state(event_type: PropertyEvent, property_id: str, pay
     # 1. READ state
     prop = await get_property_by_id(property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found in central state tree")
+        raise NotFoundError(detail="Property not found in central state tree")
         
     current_status = prop.get("status", "draft")
     

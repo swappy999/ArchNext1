@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request
-from app.core.dependencies import get_current_user, require_roles
+from app.core.verification.middlewares.auth_checks import get_current_user, require_roles
 from app.repository.user_repo import update_user
 from app.models.user_model import _generate_security_key
 from app.core.rate_limiter import limiter, WRITE_LIMIT

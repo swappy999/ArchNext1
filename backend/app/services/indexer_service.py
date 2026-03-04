@@ -51,7 +51,7 @@ async def poll_nft_transfers():
         return {"mode": "offline", "events": 0}
 
     nft_address = getattr(settings, "NFT_CONTRACT_ADDRESS", None)
-    abi = _load_abi("property_nft_abi.json")
+    abi = _load_abi("../shared/abis/property_nft_abi.json")
     if not nft_address or not abi:
         return {"mode": "offline", "events": 0}
 
@@ -107,7 +107,7 @@ async def poll_marketplace_sales():
         return {"mode": "offline", "events": 0}
 
     marketplace_address = getattr(settings, "MARKETPLACE_ADDRESS", None)
-    abi = _load_abi("marketplace_abi.json")
+    abi = _load_abi("../shared/abis/marketplace_abi.json")
     if not marketplace_address or not abi:
         return {"mode": "offline", "events": 0}
 

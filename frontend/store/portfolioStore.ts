@@ -21,6 +21,7 @@ interface PortfolioAsset {
     listed_for_sale?: boolean
     listing_price_matic?: number
     blockchain_verified?: boolean
+    chain?: 'polygon' | 'algorand' | 'mock'
 }
 
 interface PortfolioState {

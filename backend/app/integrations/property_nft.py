@@ -35,7 +35,7 @@ def _get_nft_contract():
     if not nft_address:
         return None
 
-    abi_path = os.path.join(os.path.dirname(__file__), "../../property_nft_abi.json")
+    abi_path = os.path.join(os.path.dirname(__file__), "../../../shared/abis/property_nft_abi.json")
     if not os.path.exists(abi_path):
         print("Warning: property_nft_abi.json not found. Deploy PropertyNFT.sol first.")
         return None

@@ -5,6 +5,7 @@ from app.integrations.blockchain import (
 )
 from app.repository.property_repo import get_property_by_id, update_property
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 
 async def verify_property_service(property_id: str, current_user: dict) -> dict:
     """
@@ -18,11 +19,11 @@ async def verify_property_service(property_id: str, current_user: dict) -> dict:
     # 1. Fetch property
     property_data = await get_property_by_id(property_id)
     if not property_data:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
     
     # 2. Ownership check
     if str(property_data.get("owner_id")) != str(current_user["_id"]):
-        raise HTTPException(status_code=403, detail="Only the owner can verify this property")
+        raise AuthorizationError(detail="Only the owner can verify this property")
     
     # 3. Generate hash
     property_hash = generate_property_hash(property_data)
@@ -53,7 +54,7 @@ async def get_verification_status_service(property_id: str) -> dict:
     """
     property_data = await get_property_by_id(property_id)
     if not property_data:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
     
     property_hash = property_data.get("property_hash")
     if not property_hash:

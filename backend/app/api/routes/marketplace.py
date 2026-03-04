@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from app.core.dependencies import get_current_user
+from app.core.verification.middlewares.auth_checks import get_current_user
 from app.services.marketplace_service import (
     get_all_listings_service,
     get_property_listing_service,
@@ -10,6 +10,7 @@ from app.services.property_state.property_state_controller import update_propert
 from app.services.property_state.property_state_machine import PropertyEvent
 from app.repository.property_repo import get_property_by_id
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
@@ -69,16 +70,16 @@ async def buy_listing(
     # 1. Fetch the property
     prop = await get_property_by_id(listing_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
         
     if prop.get("status") not in ["listed", "available"]:
-        raise HTTPException(status_code=400, detail="Property is no longer available for direct sale")
+        raise ValidationError(detail="Property is no longer available for direct sale")
 
     wallet = current_user.get("wallet_address", current_user.get("email"))
     # Strictly use the internal DB ID (_id) for portfolio tracking
     user_id = str(current_user.get("_id"))
     if not user_id:
-        raise HTTPException(status_code=401, detail="User identification lost")
+        raise AuthenticationError(detail="User identification lost")
 
     # 2. Determine if it's considered "On-Chain"
     has_token = prop.get("nft_token_id") is not None

@@ -34,11 +34,14 @@ class PropertyResponse(PropertyBase):
     id: str
     owner_id: str
     location: Dict
+    latitude: float
+    longitude: float
     blockchain_hash: Optional[str] = None
     status: str
     is_nft: bool = False
     nft_token_id: Optional[int] = None
     predicted_price: Optional[float] = None
+    ai_valuation: Optional[Dict] = None
     is_verified: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

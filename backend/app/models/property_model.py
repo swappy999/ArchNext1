@@ -18,11 +18,11 @@ class PropertyDB(Base):
     blockchain_hash = Column(String, nullable=True)
     images = Column(JSON, default=list)
     features = Column(JSON, default=list)
-    status = Column(String, default="available")
+    status = Column(String, default="available", index=True)
     nft_token_id = Column(Float, nullable=True) # Will use Float for token ID to match sqlite/postgres laxness or Integer
     is_nft = Column(Float, default=0.0) # Actually we can just use Float and treat 1.0 as true or use Boolean
     predicted_price = Column(Float, nullable=True)
-    is_verified = Column(Float, default=0.0)
+    is_verified = Column(Float, default=0.0, index=True)
     
     # Marketplace / Auction / Verification Extensions
     listing_price_matic = Column(Float, default=0.0)
@@ -33,7 +33,15 @@ class PropertyDB(Base):
     verification_score = Column(Float, nullable=True)
     last_tx_hash = Column(String, nullable=True)
     owner_wallet = Column(String, nullable=True)
-    
+
+    # ── Multi-Chain Support (backward-compatible: all nullable, default polygon) ──
+    chain = Column(String, nullable=True, default="polygon")  # target execution chain
+    contract_address = Column(String, nullable=True)          # per-property contract override
+    token_id = Column(String, nullable=True)                  # generalized cross-chain token id
+    mint_tx_hash = Column(String, nullable=True)
+    nft_metadata_hash = Column(String, nullable=True)
+    on_chain = Column(Float, default=0.0) # Using float representing boolean (as with is_nft) to avoid import issues
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

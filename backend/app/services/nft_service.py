@@ -1,7 +1,9 @@
-from app.integrations.property_nft import mint_property_nft, get_nft_owner, check_nft_minted
+from app.integrations.property_nft import get_nft_owner, check_nft_minted
 from app.integrations.blockchain import generate_property_hash
 from app.repository.property_repo import get_property_by_id, update_property
+from blockchain.blockchain_service import mint_property_nft as chain_mint
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 
 async def mint_property_nft_service(property_id: str, wallet_address: str, current_user: dict) -> dict:
     """
@@ -17,29 +19,40 @@ async def mint_property_nft_service(property_id: str, wallet_address: str, curre
     # 1. Fetch property
     property_data = await get_property_by_id(property_id)
     if not property_data:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
 
     # 2. Ownership check
     if str(property_data.get("owner_id")) != str(current_user["_id"]):
-        raise HTTPException(status_code=403, detail="Only the owner can mint this property as NFT")
+        raise AuthorizationError(detail="Only the owner can mint this property as NFT")
 
     # 3. Check if already minted
-    existing_hash = property_data.get("property_hash")
-    if existing_hash and check_nft_minted(existing_hash):
+    existing_hash = property_data.get("property_hash") or property_data.get("nft_metadata_hash")
+    if property_data.get("is_nft") or property_data.get("nft_token_id") is not None or property_data.get("mint_tx_hash"):
         raise HTTPException(status_code=409, detail="This property has already been minted as an NFT")
+    if existing_hash and check_nft_minted(existing_hash):
+        raise HTTPException(status_code=409, detail="This property has already been minted on-chain")
 
     # 4. Generate hash (or reuse existing)
     property_hash = existing_hash or generate_property_hash(property_data)
 
-    # 5. Mint NFT
-    mint_result = mint_property_nft(wallet_address, property_hash, property_id)
+    # 5. Resolve chain and mint via hybrid router (defaults to polygon)
+    chain = property_data.get("chain") or "polygon"
+    mint_result = await chain_mint(
+        chain,
+        {
+            "wallet": wallet_address,
+            "hash": property_hash,
+            "property_id": property_id,
+        },
+    )
 
-    # 6. Update MongoDB with NFT data
+    # 6. Update DB with NFT data + chain used
     update_data = {
         "property_hash": property_hash,
         "owner_wallet": wallet_address,
         "nft_minted": mint_result["success"],
-        "nft_mode": mint_result["mode"]
+        "nft_mode": mint_result["mode"],
+        "chain": mint_result.get("chain", chain),  # persist resolved chain
     }
     if mint_result.get("tx_hash"):
         update_data["nft_tx"] = mint_result["tx_hash"]
@@ -52,6 +65,7 @@ async def mint_property_nft_service(property_id: str, wallet_address: str, curre
         "property_id": property_id,
         "property_hash": property_hash,
         "wallet_address": wallet_address,
+        "chain": mint_result.get("chain", chain),
         "nft_result": mint_result
     }
 
@@ -62,7 +76,7 @@ async def get_nft_status_service(property_id: str) -> dict:
     """
     property_data = await get_property_by_id(property_id)
     if not property_data:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
 
     token_id = property_data.get("nft_token_id")
     nft_tx = property_data.get("nft_tx")

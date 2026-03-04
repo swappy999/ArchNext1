@@ -33,7 +33,7 @@ def _get_marketplace_contract():
     if not marketplace_address:
         return None
 
-    abi_path = os.path.join(os.path.dirname(__file__), "../../marketplace_abi.json")
+    abi_path = os.path.join(os.path.dirname(__file__), "../../../shared/abis/marketplace_abi.json")
     if not os.path.exists(abi_path):
         print("Warning: marketplace_abi.json not found. Deploy PropertyMarketplace.sol first.")
         return None

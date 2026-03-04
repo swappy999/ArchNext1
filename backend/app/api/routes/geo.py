@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
+from fastapi import Query
 from app.services.geo_service import geo_intelligence
-from app.core.dependencies import get_current_user
+from app.core.verification.middlewares.auth_checks import get_current_user
 
 router = APIRouter()
 

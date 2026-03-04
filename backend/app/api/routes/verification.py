@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
-from app.core.dependencies import get_current_user
+from app.core.verification.middlewares.auth_checks import get_current_user
 from app.services.verification_service import verify_property_for_listing, verify_listing_engine
 
 router = APIRouter(prefix="/verify", tags=["Verification"])

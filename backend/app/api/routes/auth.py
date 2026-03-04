@@ -20,9 +20,9 @@ from app.services.auth_service import (
 from app.services.token_service import blacklist_token
 from app.repository.user_repo import get_user_by_email, update_user, get_user_by_wallet, create_user
 from app.integrations.metamask import verify_wallet_signature
-from app.core.security import create_access_token, create_refresh_token
+from app.core.verification.utils.crypto_utils import create_access_token, create_refresh_token
 from app.core.config import settings
-from app.core.dependencies import get_current_user
+from app.core.verification.middlewares.auth_checks import get_current_user
 from app.core.rate_limiter import limiter, AUTH_LIMIT, VERIFY_LIMIT
 from jose import jwt
 

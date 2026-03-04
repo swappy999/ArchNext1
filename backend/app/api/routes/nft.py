@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from app.core.dependencies import get_current_user
+from app.core.verification.middlewares.auth_checks import get_current_user
 from app.services.nft_service import mint_property_nft_service, get_nft_status_service
 
 router = APIRouter(prefix="/nft", tags=["NFT Ownership"])

@@ -1,5 +1,6 @@
 from enum import Enum
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 import logging
 
 logger = logging.getLogger(__name__)

@@ -22,12 +22,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from app.core.rate_limiter import limiter, rate_limit_exceeded_handler
 
+from app.core.verification.errors.handlers import register_exception_handlers
+from app.core.verification.middlewares.verify_middleware import VerifyMiddleware
+
 app = FastAPI(lifespan=lifespan_with_indexer)
 
 # ─── Rate Limiter ────────────────────────────────────────────────────────────
 # OWASP: Protects all endpoints against brute-force and DoS attacks.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+# ─── Exception Handlers ──────────────────────────────────────────────────────
+register_exception_handlers(app)
 
 
 # ─── CORS (tightened) ────────────────────────────────────────────────────────

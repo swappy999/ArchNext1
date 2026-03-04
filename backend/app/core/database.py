@@ -8,9 +8,9 @@ from app.models.base import Base
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
-    pool_size=5,            # Small local pool to reduce connect/disconnect churn
-    max_overflow=10,
-    pool_recycle=300,      # Recycle connections every 5 minutes
+    pool_size=10,
+    max_overflow=20,
+    pool_recycle=1800,
     pool_pre_ping=True,    # Verify connection is alive before using it
     connect_args={
         "prepared_statement_cache_size": 0,

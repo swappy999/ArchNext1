@@ -12,12 +12,12 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 
 const navItems = [
-    { href: '/dashboard', label: 'Command Center', icon: LayoutDashboard },
-    { href: '/map', label: 'Intelligence Map', icon: Map },
-    { href: '/properties', label: 'Properties', icon: Building2 },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/map', label: 'Property Map', icon: Map },
+    { href: '/properties', label: 'My Properties', icon: Building2 },
     { href: '/marketplace', label: 'Marketplace', icon: ShoppingBag },
     { href: '/portfolio', label: 'Portfolio', icon: Briefcase },
-    { href: '/prediction', label: 'AI Forecast', icon: Brain },
+    { href: '/prediction', label: 'Market Insights', icon: Brain },
 ]
 
 export default function Sidebar() {
@@ -36,7 +36,7 @@ export default function Sidebar() {
 
             {/* Brand */}
             <div className="h-24 flex items-center px-[22px] relative mt-2">
-                <Link href="/" className="relative flex items-center w-full group/logo transition-all duration-300">
+                <Link href="/" className="relative flex items-center w-full group/logo transition-all duration-300" aria-label="Go to Dashboard Home">
                     <AnimatePresence mode="wait">
                         {sidebarOpen ? (
                             <motion.div
@@ -78,11 +78,17 @@ export default function Sidebar() {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 py-10 px-4 space-y-2 relative">
+            <nav className="flex-1 py-10 px-4 space-y-2 relative" aria-label="Main Navigation">
                 {navItems.map(({ href, label, icon: Icon }) => {
                     const active = pathname === href
                     return (
-                        <Link key={href} href={href} className="block relative">
+                        <Link
+                            key={href}
+                            href={href}
+                            className="block relative"
+                            aria-label={`Navigate to ${label}`}
+                            aria-current={active ? "page" : undefined}
+                        >
                             <motion.div
                                 whileHover={{ x: 4 }}
                                 whileTap={{ scale: 0.98 }}
@@ -153,16 +159,16 @@ export default function Sidebar() {
                             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent group-hover:from-cyan-500/10 transition-colors" />
 
                             <div className="flex items-center justify-between mb-2 relative z-10">
-                                <span className="text-[10px] uppercase font-bold text-cyan-500 tracking-wider">Neural Link</span>
+                                <span className="text-[10px] uppercase font-bold text-cyan-500 tracking-wider">System Status</span>
                                 <div className="flex items-center gap-1.5">
                                     <span className="relative flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                     </span>
-                                    <span className="text-[10px] font-bold text-emerald-400 tracking-wide uppercase">Active</span>
+                                    <span className="text-[10px] font-bold text-emerald-400 tracking-wide uppercase">Online</span>
                                 </div>
                             </div>
-                            <div className="text-xs text-slate-400 font-medium relative z-10">Syncing Urban Node...</div>
+                            <div className="text-xs text-slate-400 font-medium relative z-10">Data synchronized</div>
                         </motion.div>
                     )}
                 </AnimatePresence>

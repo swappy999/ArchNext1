@@ -23,9 +23,9 @@ with open(os.path.join(contracts_dir, "nft_address.txt")) as f:
 with open(os.path.join(contracts_dir, "marketplace_address.txt")) as f:
     marketplace_address = f.read().strip()
 
-with open(os.path.join(os.path.dirname(__file__), "../property_nft_abi.json")) as f:
+with open(os.path.join(os.path.dirname(__file__), "../../shared/abis/property_nft_abi.json")) as f:
     nft_abi = json.load(f)
-with open(os.path.join(os.path.dirname(__file__), "../marketplace_abi.json")) as f:
+with open(os.path.join(os.path.dirname(__file__), "../../shared/abis/marketplace_abi.json")) as f:
     marketplace_abi = json.load(f)
 
 nft_contract = w3.eth.contract(address=nft_address, abi=nft_abi)

@@ -102,6 +102,11 @@ export default function IntelTooltip({ info }: IntelTooltipProps) {
                                                 VERIFIED
                                             </span>
                                         )}
+                                        {data.is_nft === 1.0 && (
+                                            <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                {data.chain ? `${data.chain.toUpperCase()} NFT` : 'NFT'}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

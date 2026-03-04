@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 
@@ -8,6 +8,7 @@ from app.repository.user_repo import (
     get_user_by_wallet
 )
 from app.services.token_service import is_token_blacklisted
+from app.core.verification.errors.exceptions import AuthenticationError, AuthorizationError
 
 security = HTTPBearer()
 
@@ -19,7 +20,7 @@ async def get_current_user(
     token = credentials.credentials
 
     if await is_token_blacklisted(token):
-        raise HTTPException(status_code=401, detail="Token revoked")
+        raise AuthenticationError(detail="Token revoked")
 
     try:
         payload = jwt.decode(
@@ -38,15 +39,15 @@ async def get_current_user(
             user = await get_user_by_wallet(wallet)
 
         else:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise AuthenticationError(detail="Invalid token")
 
         if not user:
-            raise HTTPException(status_code=401, detail="User not found")
+            raise AuthenticationError(detail="User not found")
 
         return user
 
     except JWTError as e:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise AuthenticationError(detail="Invalid token")
 
 
 def require_roles(allowed_roles: list):
@@ -54,8 +55,7 @@ def require_roles(allowed_roles: list):
     def role_checker(current_user: dict = Depends(get_current_user)):
 
         if current_user.get("role") not in allowed_roles:
-            raise HTTPException(
-                status_code=403,
+            raise AuthorizationError(
                 detail="Permission denied"
             )
 

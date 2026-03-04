@@ -2,7 +2,9 @@ from app.integrations.marketplace import get_listing, list_property_backend
 from app.repository.property_repo import get_property_by_id, get_all_properties, update_property
 from app.core.config import settings
 from app.services.prediction_service import get_prediction, _is_loaded
+from blockchain.blockchain_service import execute_sell as chain_sell
 from fastapi import HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 import random
 
 # Market tier classification based on predicted price
@@ -136,21 +138,24 @@ async def list_property_service(property_id: str, price_matic: float | None, pri
     """
     prop = await get_property_by_id(property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
 
     if str(prop.get("owner_id")) != str(current_user["_id"]):
-        raise HTTPException(status_code=403, detail="Only the owner can list this property")
+        raise AuthorizationError(detail="Only the owner can list this property")
 
     if not prop.get("nft_token_id") and prop.get("nft_token_id") != 0:
-        raise HTTPException(status_code=400, detail="Property must be minted as NFT before listing")
+        raise ValidationError(detail="Property must be minted as NFT before listing")
 
     price_wei = int(price_matic * 1e18) if price_matic else 0
     nft_address = getattr(settings, "NFT_CONTRACT_ADDRESS", None)
     marketplace_address = getattr(settings, "MARKETPLACE_ADDRESS", None)
 
+    # Resolve target chain from the property (fallback → polygon)
+    target_chain = prop.get("chain") or "polygon"
+
     from app.services.property_state.property_state_controller import update_property_state
     from app.services.property_state.property_state_machine import PropertyEvent
-    
+
     # Save listing intent to DB and run mandatory AI re-verification
     await update_property_state(
         PropertyEvent.LIST_CREATED,
@@ -162,6 +167,16 @@ async def list_property_service(property_id: str, price_matic: float | None, pri
         }
     )
 
+    # Route backend-assisted sell execution via the hybrid chain router
+    sell_result = await chain_sell(
+        target_chain,
+        {
+            "nft_contract_address": nft_address or "",
+            "token_id": prop.get("nft_token_id", 0),
+            "price_wei": price_wei,
+        },
+    )
+
     return {
         "property_id": property_id,
         "nft_token_id": prop.get("nft_token_id"),
@@ -169,6 +184,8 @@ async def list_property_service(property_id: str, price_matic: float | None, pri
         "price_wei": price_wei,
         "nft_contract_address": nft_address,
         "marketplace_contract_address": marketplace_address,
+        "chain": sell_result.get("chain", target_chain),
+        "chain_result": sell_result,
         "message": "Use this data to call listProperty() via MetaMask on the frontend.",
         "frontend_call": {
             "function": "listProperty",

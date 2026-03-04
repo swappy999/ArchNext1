@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
+from fastapi import Request
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from app.services.prediction_service import predict_property_service
-from app.core.dependencies import get_current_user
+from app.core.verification.middlewares.auth_checks import get_current_user
 from app.schemas.prediction_schema import PredictionResponse
 from app.ai.intelligence.infrastructure_score import calculate_infrastructure_score
 from app.ai.intelligence.urban_growth import calculate_growth_potential
@@ -42,7 +44,7 @@ async def predict(property_id: str,
                   current_user = Depends(get_current_user)):
     result = await predict_property_service(property_id)
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise NotFoundError(detail=result["error"])
     return result
 
 @router.post("/verify/{property_id}")
@@ -74,7 +76,7 @@ async def get_verification_report(property_id: str):
     
     prop = await get_property_by_id(property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError(detail="Property not found")
         
     # Run a fresh audit for the report
     report = await verify_property_for_listing(property_id, prop.get("price", 0))
@@ -149,7 +151,7 @@ async def freeform_predict(request: Request, data: FreeformPredictRequest, curre
     # 1. Get raw baseline predictions from the Geographic ML Model
     coords = AREA_COORDINATES.get(data.area)
     if not coords:
-        raise HTTPException(status_code=400, detail="Invalid area selected.")
+        raise ValidationError(detail="Invalid area selected.")
         
     try:
         # Calls the globally loaded random forest model based on distance to metros/roads

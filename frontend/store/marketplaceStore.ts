@@ -3,6 +3,8 @@ import { api } from '@/lib/api'
 import { useAuthStore } from './authStore'
 import { getEthersSigner, parseBlockchainError, useWalletStore } from './walletStore'
 import { blockchainProvider } from '@/lib/blockchainProvider'
+import { selectChain, chainLabel } from '@/lib/blockchain/selectChain'
+import type { ChainId } from '@/lib/blockchain/types'
 import { ethers } from 'ethers'
 import toast from 'react-hot-toast'
 
@@ -23,6 +25,7 @@ interface Listing {
     is_nft: boolean
     location?: object
     ai_valuation?: any
+    chain?: ChainId
 }
 
 interface MarketplaceState {
@@ -62,23 +65,27 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
             let txHash = ''
 
             // ─── On-chain purchase: only for NFTs with a MATIC price set ───────────
+            const chain: ChainId = listing.chain || 'polygon'
             if (listing.is_nft && listing.price_listed_matic && listing.price_listed_matic > 0) {
                 try {
                     let marketplaceAddress = ''
                     let nftContractAddress = ''
 
-                    try {
-                        const marketplaceAddrData = await import('@/contracts/PropertyMarketplace-address.json')
-                        const nftAddrData = await import('@/contracts/PropertyNFT-address.json')
-                        marketplaceAddress = marketplaceAddrData.address
-                        nftContractAddress = nftAddrData.address
-                    } catch (e) {
-                        // Missing files ok if in mock mode
-                        if (!blockchainProvider.isMock()) throw e
-                    }
+                    // Algorand doesn't need contract addresses — skip loading
+                    if (chain !== 'algorand') {
+                        try {
+                            const marketplaceAddrData = await import('@/contracts/PropertyMarketplace-address.json')
+                            const nftAddrData = await import('@/contracts/PropertyNFT-address.json')
+                            marketplaceAddress = marketplaceAddrData.address
+                            nftContractAddress = nftAddrData.address
+                        } catch (e) {
+                            // Missing files ok if in mock mode
+                            if (!blockchainProvider.isMock()) throw e
+                        }
 
-                    if (!blockchainProvider.isMock() && (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000')) {
-                        throw new Error('Marketplace contract not deployed yet.')
+                        if (!blockchainProvider.isMock() && (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000')) {
+                            throw new Error('Marketplace contract not deployed yet.')
+                        }
                     }
 
                     const tokenId = listing.token_id ?? listing.nft_token_id
@@ -86,16 +93,21 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
                         throw new Error('Token ID not found for this listing')
                     }
 
+                    const adapter = selectChain(chain)
+                    const networkName = chainLabel(chain)
+
                     if (blockchainProvider.isMock()) {
                         toast.loading('Simulating transaction via Mock Layer...', { id: toastId })
+                    } else if (chain === 'algorand') {
+                        toast.loading(`Submitting transaction to ${networkName}...`, { id: toastId })
                     } else {
                         toast.loading('Please confirm purchase in MetaMask...', { id: toastId })
                     }
 
                     const priceWei = ethers.parseEther(listing.price_listed_matic.toString())
-                    const result = await blockchainProvider.buyProperty(marketplaceAddress, nftContractAddress, tokenId, priceWei)
+                    const result = await adapter.buyProperty(marketplaceAddress, nftContractAddress, tokenId, priceWei)
 
-                    toast.loading(blockchainProvider.isMock() ? 'Mock Network confirms transaction...' : 'Mining transaction on Polygon Amoy...', { id: toastId })
+                    toast.loading(blockchainProvider.isMock() ? 'Mock Network confirms transaction...' : `Mining transaction on ${networkName}...`, { id: toastId })
                     txHash = result.txHash
 
                 } catch (ethError: any) {
@@ -155,41 +167,52 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
             let txHash = ''
 
             // ─── On-chain listing if it is an NFT ───────────
+            const chain: ChainId = property.chain || 'polygon'
             if (property.is_nft && property.nft_token_id !== undefined && property.nft_token_id !== null) {
                 let marketplaceAddress = ''
                 let nftContractAddress = ''
 
-                try {
-                    const marketplaceAddrData = await import('@/contracts/PropertyMarketplace-address.json')
-                    const nftAddrData = await import('@/contracts/PropertyNFT-address.json')
-                    marketplaceAddress = marketplaceAddrData.address
-                    nftContractAddress = nftAddrData.address
-                } catch (e) {
-                    if (!blockchainProvider.isMock()) throw e
+                if (chain !== 'algorand') {
+                    try {
+                        const marketplaceAddrData = await import('@/contracts/PropertyMarketplace-address.json')
+                        const nftAddrData = await import('@/contracts/PropertyNFT-address.json')
+                        marketplaceAddress = marketplaceAddrData.address
+                        nftContractAddress = nftAddrData.address
+                    } catch (e) {
+                        if (!blockchainProvider.isMock()) throw e
+                    }
+
+                    if (!blockchainProvider.isMock() && (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000')) {
+                        throw new Error('Marketplace contract not deployed yet.')
+                    }
                 }
 
-                if (!blockchainProvider.isMock() && (!marketplaceAddress || marketplaceAddress === '0x0000000000000000000000000000000000000000')) {
-                    throw new Error('Marketplace contract not deployed yet.')
+                const adapter = selectChain(chain)
+                const networkName = chainLabel(chain)
+
+                if (chain === 'algorand') {
+                    toast.loading(`Submitting listing to ${networkName}...`, { id: toastId })
+                } else {
+                    toast.loading(blockchainProvider.isMock() ? 'Mock: Approving marketplace for listing...' : 'Please approve marketplace in MetaMask...', { id: toastId })
                 }
 
-                toast.loading(blockchainProvider.isMock() ? 'Mock: Approving marketplace for listing...' : 'Please approve marketplace in MetaMask...', { id: toastId })
-
-                // Approve the NFT first
-                if (!blockchainProvider.isMock()) {
+                // Approve the NFT first (Polygon / non-mock only)
+                if (chain !== 'algorand' && !blockchainProvider.isMock()) {
                     const signer = await getEthersSigner()
                     const nftAbi = await import('@/contracts/PropertyNFT.json')
                     const nftContract = new ethers.Contract(nftContractAddress, nftAbi.abi, signer)
-                    // The property.nft_token_id is the token to approve
                     const approveTx = await nftContract.approve(marketplaceAddress, property.nft_token_id)
                     await approveTx.wait()
                 }
 
-                toast.loading(blockchainProvider.isMock() ? 'Mock: Listing transaction...' : 'Please confirm listing in MetaMask...', { id: toastId })
+                if (chain !== 'algorand') {
+                    toast.loading(blockchainProvider.isMock() ? 'Mock: Listing transaction...' : 'Please confirm listing in MetaMask...', { id: toastId })
+                }
 
                 const priceWei = ethers.parseEther(priceMatic.toString())
-                const result = await blockchainProvider.listProperty(marketplaceAddress, nftContractAddress, property.nft_token_id, priceWei)
+                const result = await adapter.listProperty(marketplaceAddress, nftContractAddress, property.nft_token_id, priceWei)
 
-                toast.loading(blockchainProvider.isMock() ? 'Mock: Mining listing transaction...' : 'Mining listing on Polygon Amoy...', { id: toastId })
+                toast.loading(blockchainProvider.isMock() ? 'Mock: Mining listing transaction...' : `Mining listing on ${networkName}...`, { id: toastId })
                 txHash = result.txHash
             }
 

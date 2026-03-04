@@ -1,5 +1,5 @@
 from app.repository.user_repo import get_user_by_email, create_user, update_user
-from app.core.security import (
+from app.core.verification.utils.crypto_utils import (
     hash_password, verify_password,
     create_access_token, create_refresh_token,
     create_reset_token, verify_reset_token

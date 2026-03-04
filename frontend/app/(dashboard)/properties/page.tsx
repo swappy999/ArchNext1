@@ -26,11 +26,11 @@ export default function PropertiesPage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-[0_0_10px_#06b6d4] animate-pulse" />
-                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.3em]">Network Intelligence Registry</span>
+                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.3em]">Property Database</span>
                     </div>
                     <div className="space-y-2">
                         <h1 className="text-5xl font-black text-white tracking-tighter text-gradient leading-none">Property Index</h1>
-                        <p className="text-slate-400 max-w-xl text-lg font-medium">Monitoring {properties.length} active urban nodes across the global spatial network.</p>
+                        <p className="text-slate-400 max-w-xl text-lg font-medium">Monitoring {properties.length} active property assets available in the network.</p>
                     </div>
                 </div>
 
@@ -41,8 +41,8 @@ export default function PropertiesPage() {
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            placeholder="SCAN REGISTRY..."
-                            className="h-12 pl-12 pr-6 w-full rounded-2xl bg-[#05070A]/50 glass-panel border border-white/[0.06] text-[10px] font-black tracking-[0.2em] text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                            placeholder="SEARCH PROPERTIES..."
+                            className="h-12 pl-12 pr-6 w-full rounded-2xl bg-[#05070A]/50 glass-panel border border-white/[0.06] text-[11px] font-black tracking-[0.1em] text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                         />
                     </div>
                     <div className="flex p-1 rounded-[1.25rem] bg-[#05070A]/50 glass-panel border border-white/[0.06]">
@@ -84,13 +84,13 @@ export default function PropertiesPage() {
                         <Building2 size={40} className="text-slate-800" />
                         <div className="absolute inset-0 border border-cyan-500/10 rounded-full animate-pulse" />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-300 tracking-tight uppercase tracking-widest">Registry Sync Failed</h2>
-                    <p className="text-slate-500 mt-2 max-w-xs text-center font-medium">No active urban nodes match your current search parameters.</p>
+                    <h2 className="text-2xl font-black text-slate-300 tracking-tight uppercase tracking-widest">No Properties Found</h2>
+                    <p className="text-slate-500 mt-2 max-w-xs text-center font-medium">No active property assets match your search criteria.</p>
                     <button
                         onClick={() => setSearch('')}
-                        className="mt-10 px-8 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all"
+                        className="mt-10 px-8 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[11px] font-black text-cyan-400 uppercase tracking-[0.15em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all"
                     >
-                        Reset Local Search
+                        Reset Search
                     </button>
                 </div>
             ) : (
