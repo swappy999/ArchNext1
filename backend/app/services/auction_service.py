@@ -104,6 +104,13 @@ async def place_bid_service(auction_id: str, amount: float,
 
     wallet = current_user.get("wallet_address") or current_user.get("email") or "unknown"
 
+    from app.services.escrow_service import lock_funds
+    
+    # Simulate Escrow Lock
+    escrow_id = await lock_funds(wallet, amount, str(auction["property_id"]))
+    if not escrow_id:
+        raise HTTPException(status_code=400, detail="Insufficient funds or escrow lock failed.")
+
     # Record bid
     bid = await create_bid({
         "auction_id": auction_id,
@@ -127,6 +134,20 @@ async def place_bid_service(auction_id: str, amount: float,
         "end_time": new_end_time,
     })
 
+    # Broadcast BID_PLACED event to all WebSocket clients
+    try:
+        from app.services.property_state.property_events import property_bus
+        from app.services.property_state.property_state_machine import PropertyEvent
+        await property_bus.emit(PropertyEvent.BID_PLACED, {
+            "auction_id": auction_id,
+            "property_id": str(auction["property_id"]),
+            "amount": amount,
+            "bidder": wallet,
+            "new_end_time": new_end_time.isoformat(),
+        })
+    except Exception:
+        pass
+
     return {
         "bid": bid,
         "auction_id": auction_id,
@@ -134,6 +155,7 @@ async def place_bid_service(auction_id: str, amount: float,
         "new_end_time": new_end_time.isoformat(),
         "message": "Bid placed successfully!"
     }
+
 
 
 async def finalize_auction_service(auction_id: str, current_user: dict) -> dict:
@@ -174,6 +196,9 @@ async def finalize_auction_service(auction_id: str, current_user: dict) -> dict:
                 "winner_id": winner
             }
         )
+        
+        from app.services.escrow_service import resolve_auction_escrows
+        await resolve_auction_escrows(str(auction["property_id"]), winner)
 
     return {
         "auction_id": auction_id,
@@ -247,3 +272,4 @@ async def get_active_auctions_service() -> list:
             "property": prop,
         })
     return enriched
+

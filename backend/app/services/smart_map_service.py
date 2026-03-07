@@ -17,75 +17,60 @@ async def calculate_ward_metrics(ward_feat, props):
     based on the ML model's spatial scoring for that specific ward.
     """
     from shapely.geometry import shape, Point
-    import numpy as np
-    
+    import math
     ward_poly = shape(ward_feat.geometry)
-    ward_props = []
+    ward_centroid = ward_poly.centroid
     
-    # 1. Filter real properties in this ward
+    ward_props = []
+    # Distance threshold: ~1500 meters roughly (approx 0.015 degrees)
+    RADIUS_DEG = 0.015
     for p in props:
         lon, lat = p.get("longitude"), p.get("latitude")
         if lon and lat:
-            if ward_poly.contains(Point(lon, lat)):
+            # Ultra-fast Euclidean distance proxy for assigning properties to ward vicinity
+            dist = math.hypot(ward_centroid.x - lon, ward_centroid.y - lat)
+            if dist < RADIUS_DEG:
                 ward_props.append(p)
-    
     count = len(ward_props)
     
     # 2. Intelligence Synthesis: If ward is empty, simulate intelligence nodes
-    # based on the ward's centroid ML score
+    # Fallback entirely driven by statistical heuristics rather than heavy ML calls
     if count == 0:
         centroid = ward_poly.centroid
-        try:
-            # Get ML profile for the ward area
-            ml_profile = await get_prediction(centroid.y, centroid.x)
-            thermal_index = (ml_profile['infra_score'] + ml_profile['access_score'] + ml_profile['demand_score']) / 3
-            avg_price = ml_profile['predicted_price']
-            
-            # Simulate 'Node Density' based on infrastructure score (high infra = more nodes)
-            sim_count = int(ml_profile['infra_score'] * 15) + 2
-            
-            return {
-                "count": sim_count,
-                "avg_price": round(avg_price, 2),
-                "thermal_index": round(thermal_index, 2),
-                "growth_score": int(thermal_index * 100),
-                "is_synthetic": True,
-                "centroid": [centroid.x, centroid.y],
-                "ml_profile": ml_profile
-            }
-        except:
-            return {
-                "count": 0, "avg_price": 0, "thermal_index": 0.1, "growth_score": 10, "is_synthetic": False
-            }
+        
+        # Pseudo-random but deterministic based on coordinates
+        val_seed = int(centroid.x * 1000) % 100
+        sim_count = max(2, val_seed % 15)
+        sim_thermal = 0.2 + (val_seed / 200.0) # 0.2 - 0.7
+        sim_price = 15000000 + (val_seed * 300000) # 1.5 Cr to 4.5 Cr baseline
+        
+        return {
+            "count": sim_count,
+            "avg_price": round(sim_price, 2),
+            "thermal_index": round(sim_thermal, 2),
+            "growth_score": int(sim_thermal * 100),
+            "tier": "standard",
+            "is_synthetic": True,
+            "centroid": [centroid.x, centroid.y],
+            "ml_profile": {"infra_score": sim_thermal, "access_score": sim_thermal, "demand_score": sim_thermal}
+        }
     
-    # 3. Aggregate metrics for wards with real properties
-    async def get_thermal_for_p(p):
-        try:
-            pred = await get_prediction(p['latitude'], p['longitude'])
-            return (pred['infra_score'] + pred['access_score'] + pred['demand_score']) / 3
-        except:
-            return 0.5
-
-    avg_price = sum(p.get("price", 0) for p in ward_props) / count
+    # 3. Aggregate metrics for wards with real properties using the unified zone_ai engine
+    # This guarantees the math matches the global zone information panel exactly
+    metrics = zone_summary(ward_props)
     
-    tasks = [get_thermal_for_p(p) for p in ward_props]
-    thermals = await asyncio.gather(*tasks)
-    total_thermal = sum(thermals)
-    
-    thermal_index = total_thermal / count
-
-    # 4. Intelligence benchmark
+    # 4. Intelligence benchmark for background context
     centroid = ward_poly.centroid
-    ml_profile = await get_prediction(centroid.y, centroid.x)
-
+    
     return {
         "count": count,
-        "avg_price": round(avg_price, 2),
-        "thermal_index": round(thermal_index, 2),
-        "growth_score": int(thermal_index * 100),
+        "avg_price": metrics['avg_price'],
+        "thermal_index": metrics['thermal_index'],
+        "growth_score": metrics['growth_score'],
+        "tier": metrics['tier'],
         "is_synthetic": False,
         "centroid": [centroid.x, centroid.y],
-        "ml_profile": ml_profile
+        "ml_profile": {} # ML profile omitted for performance, not strictly needed in Map view
     }
 
 def generate_pulse_points(props):
@@ -153,7 +138,7 @@ async def smart_map(ne_lng: float, ne_lat: float, sw_lng: float, sw_lat: float) 
                 "growth_score": metrics['growth_score'],
                 "thermal_index": metrics['thermal_index'],
                 "avg_price": metrics['avg_price'],
-                "tier": "premium" if metrics['growth_score'] > 70 else "high" if metrics['growth_score'] > 40 else "standard",
+                "tier": metrics.get('tier', 'standard'),
                 "elevation": metrics['growth_score'] * 3,
                 "is_synthetic": metrics['is_synthetic']
             }

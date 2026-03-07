@@ -30,6 +30,7 @@ class AuctionDB(Base):
     end_time = Column(DateTime, nullable=False)
     status = Column(String, default=AuctionStatus.ACTIVE)
     bid_count = Column(Integer, default=0)
+    tx_hash = Column(String, nullable=True) # Track the auction creation TX
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

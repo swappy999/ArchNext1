@@ -30,6 +30,10 @@ class PropertyUpdate(BaseModel):
     features: Optional[List[str]] = None
     status: Optional[str] = None
 
+class PropertyTokenizeRequest(BaseModel):
+    total_shares: int
+    price_per_share: float
+
 class PropertyResponse(PropertyBase):
     id: str
     owner_id: str
@@ -43,6 +47,13 @@ class PropertyResponse(PropertyBase):
     predicted_price: Optional[float] = None
     ai_valuation: Optional[Dict] = None
     is_verified: bool = False
+    
+    # Fractional Tokenization
+    is_fractional: bool = False
+    total_shares: int = 1
+    available_shares: int = 1
+    price_per_share: Optional[float] = None
+    
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     

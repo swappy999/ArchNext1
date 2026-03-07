@@ -131,7 +131,11 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
     },
 
     createAuction: async (propertyId: string, reservePrice: number, durationHours: number) => {
-        const toastId = toast.loading('Preparing auction...')
+        const { useTransactionStore } = await import('./transactionStore')
+        const tx = useTransactionStore.getState()
+        tx.begin('Creating Auction', 'Running AI verification for auction eligibility...')
+        await new Promise(r => setTimeout(r, 400))
+
         try {
             const token = useAuthStore.getState().accessToken
 
@@ -163,16 +167,10 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
                 }
 
                 const adapter = selectChain(chain)
-                const networkName = chainLabel(chain)
 
                 if (useOnChain || blockchainProvider.isMock() || chain === 'algorand') {
-                    if (chain === 'algorand') {
-                        toast.loading(`Creating auction on ${networkName}...`, { id: toastId })
-                    } else {
-                        toast.loading(blockchainProvider.isMock() ? 'Mock: Approving and starting auction...' : 'Confirm auction creation in MetaMask...', { id: toastId })
-                    }
+                    tx.advance('wallet_confirm', `Confirm auction creation in your ${chainLabel(chain)} wallet...`)
 
-                    // Assume 1 POL reserve price format
                     const reservePriceWei = ethers.parseEther(reservePrice.toString())
                     const durationSeconds = durationHours * 3600
 
@@ -185,49 +183,51 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
                         await approveTx.wait()
                     }
 
+                    tx.advance('mining', `Mining auction transaction on ${chainLabel(chain)}...`)
                     const result = await adapter.startAuction(auctionContractAddr, nftContractAddr, property.nft_token_id, reservePriceWei, durationSeconds)
                     txHash = result.txHash
                 }
+            } else {
+                tx.advance('mining', 'Preparing auction parameters...')
             }
 
+            tx.advance('db_sync', 'Recording auction in database and updating marketplace...')
             const res = await api.post(`/auction/create/${propertyId}`, {
                 reserve_price: reservePrice,
                 duration_hours: durationHours,
                 tx_hash: txHash
             }, token)
 
-            toast.success('Auction created successfully!', { id: toastId })
-
             const { usePropertyStore } = await import('./propertyStore')
             await usePropertyStore.getState().syncAll()
             const { usePortfolioStore } = await import('./portfolioStore')
             usePortfolioStore.getState().fetchPortfolio()
+
+            tx.complete(txHash)
             return res
         } catch (e: any) {
             console.error('Failed to create auction:', e)
-            toast.error(parseBlockchainError(e) || 'Failed to create auction', { id: toastId })
+            tx.fail(parseBlockchainError(e) || e?.message || 'Failed to create auction.')
             throw e
         }
     },
 
     placeBid: async (auctionId: string, amount: number) => {
+        const { useTransactionStore } = await import('./transactionStore')
+        const tx = useTransactionStore.getState()
+
         set({ bidding: true })
-        const toastId = toast.loading('Preparing bid...')
+        tx.begin('Placing Bid', 'Validating bid amount and auction status...')
+        await new Promise(r => setTimeout(r, 300))
+
         try {
             const auction = get().currentAuction
             if (!auction) throw new Error('Auction not loaded')
 
             let txHash = ''
-            // Determine chain from auction's property (falls back to polygon)
             const chain: ChainId = (auction as any).property?.chain || 'polygon'
 
             try {
-                const signer = await getEthersSigner()
-
-                // ─── Step 1: Approve Token Spend ──────────────────────────────────────
-                set({ approving: true })
-                toast.loading('Step 1/3: Approve ARCH tokens for escrow...', { id: toastId })
-
                 let auctionContractAddr: string = ''
                 let tokenContractAddr: string = ''
                 let useOnChain = true
@@ -247,52 +247,46 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
                 }
 
                 const adapter = selectChain(chain)
-                const networkName = chainLabel(chain)
 
                 if (useOnChain || blockchainProvider.isMock() || chain === 'algorand') {
-                    // ERC-20 Approval (amount in token units — using parseUnits for 18 decimals)
+                    tx.advance('wallet_confirm', 'Step 1/2: Approve ARCH tokens — confirm in your wallet...')
+                    set({ approving: true })
+
                     const amountWei = ethers.parseUnits(amount.toString(), 18)
-
-                    if (chain === 'algorand') {
-                        toast.loading(`Submitting bid to ${networkName}...`, { id: toastId })
-                    } else {
-                        toast.loading(blockchainProvider.isMock() ? 'Mock: Approving ARCH tokens...' : 'Approving... waiting for confirmation', { id: toastId })
-                    }
                     await adapter.approveTokens(tokenContractAddr, auctionContractAddr, amountWei)
-
                     set({ approving: false })
 
-                    // ─── Step 2: Place Bid ─────────────────────────────────────────────────
-                    if (chain !== 'algorand') {
-                        toast.loading(blockchainProvider.isMock() ? 'Mock: Confirm bid...' : 'Step 2/3: Confirm bid in MetaMask...', { id: toastId })
-                    }
+                    tx.advance('mining', `Step 2/2: Mining bid on ${chainLabel(chain)}...`)
                     const onChainId = (auction as any).on_chain_id ?? parseInt(auction.id)
                     if (isNaN(onChainId)) throw new Error('Invalid on-chain auction ID')
 
                     const result = await adapter.placeBid(auctionContractAddr, onChainId, amountWei)
-
-                    toast.loading(blockchainProvider.isMock() ? 'Mock: Mining bid transaction...' : `Step 3/3: Mining bid on ${networkName}...`, { id: toastId })
                     txHash = result.txHash
                 }
 
             } catch (ethError: any) {
                 set({ approving: false })
                 const parsedMsg = parseBlockchainError(ethError)
-                toast.error(parsedMsg, { id: toastId })
+                tx.fail(parsedMsg)
                 throw new Error(parsedMsg)
             }
 
-            // ─── Step 3: Record in Backend ─────────────────────────────────────────
+            // ─── Record in Backend ────────────────────────────────────────────
+            tx.advance('db_sync', 'Recording bid and refreshing auction...')
             const token = useAuthStore.getState().accessToken
             const result = await api.post(`/auction/${auctionId}/bid`, { amount, tx_hash: txHash }, token)
 
-            toast.success(`Bid of ₹${amount.toLocaleString('en-IN')} placed!`, { id: toastId })
             await get().fetchAuctionDetail(auctionId)
             const { usePropertyStore } = await import('./propertyStore')
             await usePropertyStore.getState().syncAll()
+
+            tx.complete(txHash)
             return result
         } catch (e: any) {
             console.error('Bid failed:', e)
+            if (!useTransactionStore.getState().errorMessage) {
+                tx.fail(parseBlockchainError(e) || e?.message || 'Bid failed. Please try again.')
+            }
             throw e
         } finally {
             set({ bidding: false, approving: false })
@@ -300,7 +294,11 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
     },
 
     finalizeAuction: async (auctionId: string) => {
-        const toastId = toast.loading('Finalizing auction...')
+        const { useTransactionStore } = await import('./transactionStore')
+        const tx = useTransactionStore.getState()
+        tx.begin('Finalizing Auction', 'Determining highest bidder and transferring ownership...')
+        await new Promise(r => setTimeout(r, 400))
+
         try {
             const auction = get().currentAuction
             if (!auction) throw new Error('Auction not loaded')
@@ -320,33 +318,34 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
                 }
 
                 const adapter = selectChain(chain)
-                const networkName = chainLabel(chain)
 
-                if (chain === 'algorand') {
-                    toast.loading(`Finalizing auction on ${networkName}...`, { id: toastId })
-                } else {
-                    toast.loading(blockchainProvider.isMock() ? 'Mock: Confirm finalization...' : 'Confirm finalization in MetaMask...', { id: toastId })
-                }
+                tx.advance('wallet_confirm', `Confirm auction finalization in your ${chainLabel(chain)} wallet...`)
                 await adapter.finalizeAuction(auctionContractAddr, onChainId)
+                tx.advance('mining', 'Transferring NFT ownership on-chain...')
 
             } catch (ethError: any) {
                 const parsedMsg = parseBlockchainError(ethError)
                 // If contract not deployed, fall through to backend-only finalization
                 if (!parsedMsg.includes('not yet deployed')) {
-                    toast.error(parsedMsg, { id: toastId })
+                    tx.fail(parsedMsg)
                     throw new Error(parsedMsg)
                 }
             }
 
+            tx.advance('db_sync', 'Recording ownership transfer and updating portfolio...')
             const token = useAuthStore.getState().accessToken
             await api.post(`/auction/${auctionId}/finalize`, {}, token)
 
-            toast.success('Auction finalized!', { id: toastId })
             await get().fetchAuctionDetail(auctionId)
             const { usePropertyStore } = await import('./propertyStore')
             await usePropertyStore.getState().syncAll()
+
+            tx.complete()
         } catch (e: any) {
             console.error('Finalize failed:', e)
+            if (!useTransactionStore.getState().errorMessage) {
+                tx.fail(parseBlockchainError(e) || e?.message || 'Auction finalization failed.')
+            }
             throw e
         }
     },

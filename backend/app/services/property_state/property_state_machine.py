@@ -36,20 +36,26 @@ ALLOWED_TRANSITIONS = {
         PropertyEvent.NFT_MINTED: PropertyState.NFT_MINTED
     },
     PropertyState.NFT_MINTED: {
-        PropertyEvent.OWNERSHIP_TRANSFERRED: PropertyState.OWNED
+        PropertyEvent.OWNERSHIP_TRANSFERRED: PropertyState.OWNED,
+        PropertyEvent.LIST_CREATED: PropertyState.LISTED,
+        PropertyEvent.AUCTION_STARTED: PropertyState.AUCTION_ACTIVE,
     },
     PropertyState.OWNED: {
         PropertyEvent.LIST_CREATED: PropertyState.LISTED,
         PropertyEvent.AUCTION_STARTED: PropertyState.AUCTION_ACTIVE,
-        PropertyEvent.OWNERSHIP_TRANSFERRED: PropertyState.OWNED # Transferred ownership between wallets but staying OWNED
+        PropertyEvent.OWNERSHIP_TRANSFERRED: PropertyState.OWNED, # Transferred ownership between wallets but staying OWNED
+        PropertyEvent.NFT_MINTED: PropertyState.NFT_MINTED
     },
     PropertyState.LISTED: {
         PropertyEvent.PROPERTY_SOLD: PropertyState.SOLD,
-        PropertyEvent.DELISTED: PropertyState.OWNED
+        PropertyEvent.DELISTED: PropertyState.OWNED,
+        PropertyEvent.LIST_CREATED: PropertyState.LISTED, # Allow price updates
+        PropertyEvent.AUCTION_STARTED: PropertyState.AUCTION_ACTIVE # Allow switching to auction
     },
     PropertyState.AUCTION_ACTIVE: {
         PropertyEvent.PROPERTY_SOLD: PropertyState.SOLD,
-        PropertyEvent.DELISTED: PropertyState.OWNED # e.g. cancelled auction
+        PropertyEvent.DELISTED: PropertyState.OWNED, # e.g. cancelled auction
+        PropertyEvent.LIST_CREATED: PropertyState.LISTED # Allow switching to direct sale
     },
     PropertyState.SOLD: {
         PropertyEvent.OWNERSHIP_TRANSFERRED: PropertyState.OWNED,
@@ -89,6 +95,10 @@ def validate_transition(current_status: str, event: PropertyEvent) -> PropertySt
         return PropertyState.AUCTION_ACTIVE
     if state == PropertyState.DRAFT and event == PropertyEvent.OWNERSHIP_TRANSFERRED:
         return PropertyState.OWNED
+    if state == PropertyState.DRAFT and event == PropertyEvent.NFT_MINTED:
+        return PropertyState.NFT_MINTED
+    if state == PropertyState.AVAILABLE and event == PropertyEvent.NFT_MINTED:
+        return PropertyState.NFT_MINTED
         
     next_state = allowed_events.get(event)
     

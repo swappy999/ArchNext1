@@ -42,6 +42,21 @@ class PropertyDB(Base):
     nft_metadata_hash = Column(String, nullable=True)
     on_chain = Column(Float, default=0.0) # Using float representing boolean (as with is_nft) to avoid import issues
 
+    # ── AI Growth & Investment Analytics ──
+    growth_score = Column(Float, nullable=True)
+    investment_score = Column(Float, nullable=True)
+    predicted_5y_price = Column(Float, nullable=True)
+    appreciation_rate = Column(Float, nullable=True)
+    rental_yield = Column(Float, nullable=True)
+    liquidity_score = Column(Float, nullable=True)
+    risk_level = Column(String, nullable=True)
+
+    # ── Module 2: Fractional Tokenization ──
+    is_fractional = Column(Float, default=0.0) # Using float as boolean
+    total_shares = Column(Float, default=1.0) # Using float
+    available_shares = Column(Float, default=1.0)
+    price_per_share = Column(Float, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -59,6 +74,22 @@ class Property(BaseModel):
     status: str = "available"
     predicted_price: Optional[float] = None
     is_verified: bool = False
+
+    # AI Investment Models
+    growth_score: Optional[float] = None
+    investment_score: Optional[float] = None
+    predicted_5y_price: Optional[float] = None
+    appreciation_rate: Optional[float] = None
+    rental_yield: Optional[float] = None
+    liquidity_score: Optional[float] = None
+    risk_level: Optional[str] = None
+
+    # Fractional Tokenization
+    is_fractional: bool = False
+    total_shares: int = 1
+    available_shares: int = 1
+    price_per_share: Optional[float] = None
+
     created_at: datetime = datetime.utcnow()
     updated_at: datetime = datetime.utcnow()
 

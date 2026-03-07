@@ -1,8 +1,56 @@
 from app.models.property_model import PropertyDB
+from app.models.shareholder_model import ShareholderDB
 from app.core.database import AsyncSessionLocal
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import List, Optional
+import logging
+import uuid
+
+logger = logging.getLogger(__name__)
+
+async def tokenize_property(property_id: str, owner_id: str, total_shares: int, price_per_share: float) -> bool:
+    try:
+        pid = property_id
+        if isinstance(pid, str):
+            try:
+                pid = uuid.UUID(pid)
+            except ValueError:
+                pass
+                
+        async with AsyncSessionLocal() as session:
+            # Check property
+            result = await session.execute(select(PropertyDB).where(PropertyDB.id == pid, PropertyDB.owner_id == owner_id))
+            prop = result.scalars().first()
+            
+            if not prop:
+                return False
+                
+            if prop.is_fractional:
+                return False # already fractionalized
+                
+            # Update property fields
+            prop.is_fractional = 1.0
+            prop.total_shares = float(total_shares)
+            prop.available_shares = float(total_shares)
+            prop.price_per_share = float(price_per_share)
+            
+            # Create original shareholder record (owner holds 100% initially to be sold)
+            # Actually, to make it available for sale, owner doesn't need a shareholder record
+            # until they keep some shares. But let's create a record showing they own 100% implicitly
+            sh = ShareholderDB(
+                property_id=str(prop.id),
+                wallet_address=prop.owner_wallet or owner_id,
+                shares_owned=float(total_shares),
+                purchase_price=0.0
+            )
+            session.add(sh)
+            await session.commit()
+            return True
+            
+    except Exception as e:
+        logger.error(f"Error tokenizing property {property_id}: {e}")
+        return False
 
 def _to_dict(prop: PropertyDB):
     if not prop:

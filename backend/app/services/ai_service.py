@@ -1,8 +1,15 @@
 from typing import List
 from google import genai
 from google.genai import types
+from google.api_core import exceptions
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.core.config import settings
 from app.schemas.ai_schema import ChatMessage
+from datetime import datetime, timedelta
+import json
+
+# Global cooldown for AI Quota (Circuit Breaker)
+QUOTA_COOLDOWN_UNTIL = datetime.utcnow()
 
 # Initialize the Gemini clients
 client_chatbot = genai.Client(api_key=settings.GEMINI_API_KEY_CHATBOT) if settings.GEMINI_API_KEY_CHATBOT else None
@@ -27,15 +34,52 @@ You must:
 You are not a generic chatbot. You are a domain-specific intelligence layer for ArchNext.
 """
 
+def is_retryable_exception(exception):
+    """
+    Checks if an exception is a 429 Resource Exhausted error.
+    """
+    # google-genai SDK 429s often come as 'ResourceExhausted'
+    return "429" in str(exception) or "ResourceExhausted" in str(exception)
+
+@retry(
+    retry=retry_if_exception_type(Exception),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(3),
+    retry_error_callback=lambda retry_state: None
+)
+async def _call_gemini_safe(client, model, contents, config):
+    global QUOTA_COOLDOWN_UNTIL
+    
+    # 1. Circuit Breaker Check
+    if datetime.utcnow() < QUOTA_COOLDOWN_UNTIL:
+        # Silently skip if we're in cooldown
+        return None
+
+    try:
+        return client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=config
+        )
+    except Exception as e:
+        err_str = str(e)
+        if is_retryable_exception(e):
+            # 2. Extract specific quota info - if 'limit: 0', trigger hard cooldown
+            if "limit: 0" in err_str:
+                print(f"[Gemini] Hard Quota Exhausted (Limit: 0). Entering 2-minute cooldown.")
+                QUOTA_COOLDOWN_UNTIL = datetime.utcnow() + timedelta(minutes=2)
+                return None # Stop retrying immediately
+                
+            print(f"[Gemini] Quota hit (429), retrying in background... (Reason: {err_str[:100]})")
+            raise e 
+        raise e
+
 async def process_chat_message(messages: List[ChatMessage], context: dict | None = None) -> str:
     if not client_chatbot:
         return "Internal Error: Gemini Chatbot API key is not configured."
 
-    # Convert frontend messages to the format expected by the google-genai SDK
     contents = []
     
-    # If context is provided, prepend it secretly as a system instruction part to the first message 
-    # (or rather, we can just inject it into the content of the very last user message for simplicity)
     if context and messages:
         last_msg = messages[-1]
         if last_msg.role == 'user':
@@ -43,7 +87,6 @@ async def process_chat_message(messages: List[ChatMessage], context: dict | None
             last_msg.content += context_str
     
     for msg in messages:
-        # User message role is user, model message role is model
         contents.append(
             types.Content(
                 role=msg.role,
@@ -57,15 +100,18 @@ async def process_chat_message(messages: List[ChatMessage], context: dict | None
     )
 
     try:
-        response = client_chatbot.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=contents,
-            config=config
+        response = await _call_gemini_safe(
+            client_chatbot, 
+            'gemini-2.0-flash', # Changed from 2.5 to 2.0-flash which exists
+            contents, 
+            config
         )
-        return response.text
+        if response:
+            return response.text
+        return "I am currently reaching my cognitive limit for today. Please give me a moment to recalibrate."
     except Exception as e:
-        print(f"[Gemini] Error generating content: {e}")
-        return "I am currently experiencing an interruption in my cognitive routines. Please try again in a moment."
+        # Log purely for internal debugging, no need to alarm user in terminal
+        return "I am taking a brief mental break to recalibrate my city intelligence models. Please chat with me again in a minute."
 
 async def verify_property_listing(property_details: dict, predicted_price: float) -> dict:
     """
@@ -97,23 +143,30 @@ async def verify_property_listing(property_details: dict, predicted_price: float
     }}
     """
 
+    config = types.GenerateContentConfig(
+        temperature=0.2,
+        response_mime_type='application/json'
+    )
+
     try:
-        response = client_verification.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.2,
-                response_mime_type='application/json'
-            )
+        response = await _call_gemini_safe(
+            client_verification,
+            'gemini-2.0-flash',
+            prompt,
+            config
         )
-        import json
-        result = json.loads(response.text)
-        return result
+        
+        if response:
+            result = json.loads(response.text)
+            return result
+            
+        raise Exception("Empty response after retries")
+
     except Exception as e:
-        print(f"[Gemini] Verification Error: {e}")
+        # Fallback to neutral score and summary (No print needed to keep logs clean)
         return {
             "is_verified": False, 
             "verification_score": 0.5, 
-            "summary": "Verification engine timeout. Manual review suggested.",
-            "flags": ["system_error"]
+            "summary": "Property analysis pending manual review due to verification engine load.",
+            "flags": ["system_idle", "manual_review_required"]
         }

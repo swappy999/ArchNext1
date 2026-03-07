@@ -4,9 +4,12 @@ import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import { motion } from 'framer-motion'
+import { TransactionModal } from '@/components/ui/TransactionModal'
+import { useTransactionStore } from '@/store/transactionStore'
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
+    const { isOpen, step, title, description, errorMessage, txHash, close } = useTransactionStore()
 
     return (
         <div className="flex h-screen w-screen bg-[#0B0F1A] overflow-hidden font-sans antialiased text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -16,6 +19,20 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(99,102,241,0.06)_0%,transparent_50%)]" />
                 <div className="absolute inset-0 grid-bg opacity-[0.15]" />
             </div>
+
+            {/* ─── Global Transaction Progress Modal ──────────────────────────────
+                Shared across all dashboard pages (Marketplace, Portfolio, Auctions).
+                Reads from useTransactionStore — no per-page mounting needed.
+            ─────────────────────────────────────────────────────────────────── */}
+            <TransactionModal
+                isOpen={isOpen}
+                step={step}
+                title={title}
+                description={description}
+                errorMessage={errorMessage}
+                txHash={txHash}
+                onClose={close}
+            />
 
             {/* Sidebar */}
             <div className="z-50 shrink-0 relative">

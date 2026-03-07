@@ -16,6 +16,7 @@ from app.api.routes import ai
 from app.api.routes import voice
 from app.api.routes import auction
 from app.api.routes import verification
+from app.api.routes import dev
 from app.api.ws import router as ws_router
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -92,4 +93,5 @@ app.include_router(ai.router)
 app.include_router(voice.router, prefix="/voice", tags=["Voice"])
 app.include_router(auction.router)
 app.include_router(verification.router)
+app.include_router(dev.router)
 app.include_router(ws_router)

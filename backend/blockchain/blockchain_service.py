@@ -23,7 +23,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # ── Supported chains ──────────────────────────────────────────────────────────
-SUPPORTED_CHAINS: set[str] = {"polygon"}
+SUPPORTED_CHAINS: set[str] = {"polygon", "algorand"}
 DEFAULT_CHAIN = "polygon"
 
 
@@ -126,24 +126,52 @@ def _polygon_mint(metadata: dict) -> dict:
         }
 
 
+# ─── Algorand handlers (Stubs for Hybrid Phase) ──────────────────────────────
+def _algorand_buy(payload: dict) -> dict:
+    logger.info("Algorand stub: buy")
+    return {"success": True, "mode": "algorand_testnet_stub", "message": "Algorand Buy executed (stub)."}
+
+def _algorand_sell(payload: dict) -> dict:
+    logger.info("Algorand stub: sell")
+    return {"success": True, "mode": "algorand_testnet_stub", "message": "Algorand Sell executed (stub)."}
+
+def _algorand_bid(payload: dict) -> dict:
+    logger.info("Algorand stub: bid")
+    return {"success": True, "mode": "algorand_testnet_stub", "message": "Algorand Bid executed (stub)."}
+
+def _algorand_mint(metadata: dict) -> dict:
+    logger.info("Algorand stub: mint")
+    return {
+        "success": True, 
+        "mode": "algorand_testnet_stub", 
+        "tx_hash": "algo_tx_stub_12345", 
+        "token_id": 999999,
+        "message": "Algorand Mint executed (stub)."
+    }
+
+
 # ─── Chain dispatch tables ────────────────────────────────────────────────────
 # Each entry maps a chain name → handler callable(payload) → dict.
 # Add new chains here without touching any service layer code.
 
 _BUY_HANDLERS: dict[str, callable] = {
     "polygon": _polygon_buy,
+    "algorand": _algorand_buy,
 }
 
 _SELL_HANDLERS: dict[str, callable] = {
     "polygon": _polygon_sell,
+    "algorand": _algorand_sell,
 }
 
 _BID_HANDLERS: dict[str, callable] = {
     "polygon": _polygon_bid,
+    "algorand": _algorand_bid,
 }
 
 _MINT_HANDLERS: dict[str, callable] = {
     "polygon": _polygon_mint,
+    "algorand": _algorand_mint,
 }
 
 

@@ -11,6 +11,7 @@ blockchain/cache/
 .env.development.local
 .env.test.local
 .env.production.local
+importable_vercel.env
 
 # Build outputs
 dist/

@@ -31,23 +31,41 @@ async def update_property_state(event_type: PropertyEvent, property_id: str, pay
     update_data = {}
     
     # 3. Validation HOOKS
-    # E.g. AI Revalidation before LISTED / AUCTION
-    if event_type in [PropertyEvent.LIST_CREATED, PropertyEvent.AUCTION_STARTED, PropertyEvent.PROPERTY_VERIFIED] and not payload.get('skip_verification'):
+    # E.g. AI Revalidation before LISTED / AUCTION / TRANSFER
+    mandatory_verification_events = [
+        PropertyEvent.LIST_CREATED, 
+        PropertyEvent.AUCTION_STARTED, 
+        PropertyEvent.PROPERTY_VERIFIED, 
+        PropertyEvent.PROPERTY_SOLD, 
+        PropertyEvent.OWNERSHIP_TRANSFERRED
+    ]
+
+    if event_type in mandatory_verification_events and not payload.get('skip_verification'):
         from app.services.verification_service import verify_property_for_listing
         asking_price = payload.get("price", prop.get("price", 0))
         verification_report = await verify_property_for_listing(property_id, asking_price)
         
         if not verification_report.get("can_list", False):
+            risk_info = verification_report.get("risk_explanation", "Unknown Risk")
+            score = verification_report.get("verification_score", 0.0)
             raise HTTPException(
                 status_code=403, 
-                detail=f"AI Validation Failed ({verification_report.get('overall_label')}). Transition Blocked."
+                detail=f"AI Transaction Blocked (Score: {score}). Restrictions: {risk_info}"
             )
             
         update_data["verification_hash"] = verification_report.get("verification_hash")
         update_data["verification_score"] = verification_report.get("verification_score")
         
     # 4. Field Modifications based on Transition
-    if event_type == PropertyEvent.LIST_CREATED:
+    if event_type == PropertyEvent.NFT_MINTED:
+        if "nft_token_id" in payload:
+            update_data["nft_token_id"] = payload["nft_token_id"]
+            update_data["is_nft"] = 1.0
+            update_data["on_chain"] = 1.0  # Mark as officially on-chain
+        if "tx_hash" in payload:
+            update_data["mint_tx_hash"] = payload["tx_hash"]
+
+    elif event_type == PropertyEvent.LIST_CREATED:
         if "price_matic" in payload:
             update_data["listing_price_matic"] = payload["price_matic"]
             update_data["listing_price_wei"] = int(payload["price_matic"] * 1e18)

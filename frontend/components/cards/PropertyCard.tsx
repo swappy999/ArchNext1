@@ -40,7 +40,7 @@ export function PropertyCard({ property, view, index }: { property: any; view: '
                         <p className="text-base font-bold text-white truncate">{property.title || property.address}</p>
                         {property.nft_token_id !== undefined && property.nft_token_id !== null && (
                             <span className="text-[8px] font-black px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400 uppercase tracking-widest flex items-center gap-1 shadow-sm">
-                                <Fingerprint size={10} /> ON-CHAIN
+                                <Fingerprint size={10} /> ID: #{property.nft_token_id}
                             </span>
                         )}
                         <span className={cn("text-[8px] font-black px-2 py-0.5 rounded border uppercase tracking-widest shadow-sm", config.bg, config.border, config.color)}>
@@ -61,9 +61,13 @@ export function PropertyCard({ property, view, index }: { property: any; view: '
                 <div className="flex items-center gap-8 shrink-0">
                     <div className="text-right">
                         <p className="text-lg font-black text-white group-hover:text-cyan-400 transition-colors tracking-tight">{property.price_listed_matic ? `${property.price_listed_matic} POL` : formatCurrency(property.price || 0)}</p>
-                        <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                            <Cpu size={10} className="text-cyan-500" />
-                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Growth: {property.growth_score !== undefined ? property.growth_score : '8.4'}</span>
+                        <div className="flex flex-col items-end gap-1 mt-1">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest">
+                                <Activity size={10} /> Investment: {property.investment_score !== undefined ? property.investment_score.toFixed(1) : '84.0'}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+                                <Cpu size={10} /> Growth: {property.growth_score !== undefined ? property.growth_score.toFixed(1) : '78.0'}
+                            </div>
                         </div>
                     </div>
                     <Link href={`/properties/${property.id}`}>
@@ -109,7 +113,7 @@ export function PropertyCard({ property, view, index }: { property: any; view: '
                     <div className="absolute top-5 left-5 flex flex-col gap-2 z-20">
                         {property.nft_token_id !== undefined && property.nft_token_id !== null && (
                             <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 backdrop-blur-md text-blue-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
-                                <Fingerprint size={12} /> ON-CHAIN
+                                <Fingerprint size={12} /> TOKEN #{property.nft_token_id}
                             </span>
                         )}
                         {(property.chain === 'algorand') ? (
@@ -130,10 +134,17 @@ export function PropertyCard({ property, view, index }: { property: any; view: '
                     </div>
 
                     {/* AI Verified Ribbon (if applicable) */}
-                    {property.verification_hash && (
-                        <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#05070A] to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex items-center gap-3 z-20">
-                            <Cpu size={14} className="text-emerald-400" />
-                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">AI VERIFIED ✓</span>
+                    {(property.verification_hash || property.is_verified) && (
+                        <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#05070A] via-[#05070A]/80 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex items-center justify-between z-20">
+                            <div className="flex items-center gap-2">
+                                <Cpu size={14} className="text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest drop-shadow-md">AI VERIFIED ✓</span>
+                            </div>
+                            {property.investment_score && (
+                                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1 bg-cyan-500/10 px-2 py-1 rounded-md border border-cyan-500/20">
+                                    <Activity size={10} /> Score: {property.investment_score.toFixed(1)}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>

@@ -45,7 +45,6 @@ interface MapState {
     selectedFeature: any | null
     hoverInfo: HoverInfo | null
     viewMode: '2d' | '3d'
-    synthMode: 'price' | 'infra' | 'mobility' | 'demand'
     cinematicEntry: boolean
 
     // ─── Actions ──────────────────────────────────────
@@ -55,7 +54,6 @@ interface MapState {
     setSelectedFeature: (feature: any | null) => void
     setHoverInfo: (info: HoverInfo | null) => void
     setViewMode: (mode: '2d' | '3d') => void
-    setSynthMode: (mode: 'price' | 'infra' | 'mobility' | 'demand') => void
     setCinematicEntry: (done: boolean) => void
     fetchMapData: (bounds: MapBounds, page?: number, limit?: number) => Promise<void>
     flyTo: (target: Partial<Viewport>, duration?: number) => void
@@ -64,7 +62,7 @@ interface MapState {
 // ─── Debounce Helper & Cache ──────────────────────────────────────────────────
 
 let fetchTimer: any = null
-const CACHE_DURATION = 30 * 1000 // 30 seconds
+const CACHE_DURATION = 2 * 1000 // 2 seconds for real-time reactivity
 const apiCache = new Map<string, { smartData: any; aiData: any; timestamp: number }>()
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -88,21 +86,21 @@ export const useMapStore = create<MapState>((set, get) => ({
     pulsePoints: [],
     currentZone: null,
     propertyCount: 0,
+    growthData: null,
 
     // UI
     loading: false,
     activeLayers: {
-        heatmap: true,
-        zones: true,
-        properties: true,
-        pulse: true,
-        buildings: true,
-        synth: true,
+        heatmap: false,
+        intel: false,
+        zones: false,
+        properties: false,
+        pulse: false,
+        buildings: false,
     },
     selectedFeature: null,
     hoverInfo: null,
     viewMode: '3d',
-    synthMode: 'price',
     cinematicEntry: false,
 
     // ─── Actions ──────────────────────────────────────
@@ -112,11 +110,11 @@ export const useMapStore = create<MapState>((set, get) => ({
 
     setBounds: (bounds) => {
         set({ bounds })
-        // Debounced fetch — 1000ms to ensure user has stopped panning
+        // Debounced fetch — 500ms for quicker real-time sync
         if (fetchTimer) clearTimeout(fetchTimer)
         fetchTimer = setTimeout(() => {
             get().fetchMapData(bounds)
-        }, 1000)
+        }, 500)
     },
 
     toggleLayer: (layerId) =>
@@ -130,7 +128,6 @@ export const useMapStore = create<MapState>((set, get) => ({
     setSelectedFeature: (feature) => set({ selectedFeature: feature }),
     setHoverInfo: (info) => set({ hoverInfo: info }),
     setViewMode: (mode) => set({ viewMode: mode }),
-    setSynthMode: (mode) => set({ synthMode: mode }),
     setCinematicEntry: (done) => set({ cinematicEntry: done }),
 
     fetchMapData: async (bounds, page = 1, limit = 100) => {
@@ -169,7 +166,7 @@ export const useMapStore = create<MapState>((set, get) => ({
                 zoom: zoom
             })
 
-            // Await both spatial systems concurrently
+            // Await all spatial systems concurrently
             const [smartData, aiData] = await Promise.all([smartDataPromise, aiDataPromise])
 
             apiCache.set(cacheKey, { smartData, aiData, timestamp: Date.now() })

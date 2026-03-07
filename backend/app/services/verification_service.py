@@ -224,16 +224,29 @@ async def verify_property_for_listing(property_id: str, asking_price: float = 0)
         0.20 * authenticity_score
     )
 
-    if is_verified:
+    if is_verified and verification_score >= 0.60:
         overall_status = "PASS"
         overall_label = f"AUTHENTIC: Predictor Validation Passed"
     else:
         overall_status = "FAIL"
-        overall_label = f"BLOCK MINT: Failed Authenticity Predictor Strict Rules"
+        overall_label = f"BLOCK MINT: Failed Authenticity Predictor Strict Rules or Score Too Low"
+        is_verified = False
 
     # Generate cryptographic hash
     raw_hash_data = f"{property_id}_{lat}_{lng}_{verification_score:.2f}_{asking_price}"
     verify_hash = hashlib.sha256(raw_hash_data.encode('utf-8')).hexdigest()
+
+    # Compile Risk Explanation
+    risk_explanation = []
+    if not is_verified:
+        if location_check["status"] != "PASS": risk_explanation.append(location_check["label"])
+        if price_check["status"] != "PASS": risk_explanation.append(price_check["label"])
+        if completeness_check["status"] != "PASS": risk_explanation.append(completeness_check["label"])
+        if auth_result["status"] != "PASS": risk_explanation.append("Failed Authenticity Strict Rules")
+        if gemini_audit["status"] != "PASS" and gemini_audit["status"] != "WARN": risk_explanation.append("Gemini Data Audit Failed")
+        if verification_score < 0.60: risk_explanation.append(f"Combined Score ({verification_score:.2f}) below threshold (0.60)")
+    
+    risk_text = " | ".join(risk_explanation) if risk_explanation else "None"
 
     return {
         "property_id": property_id,
@@ -244,6 +257,7 @@ async def verify_property_for_listing(property_id: str, asking_price: float = 0)
         "can_list": is_verified,
         "verification_score": round(verification_score, 2),
         "verification_hash": verify_hash,
+        "risk_explanation": risk_text,
         "checks": {
             "Neural Geodata Sync": location_check,
             "Intelligence Engine Valuation": ai_check,

@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 from typing import List
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -21,7 +23,7 @@ class ConnectionManager:
             logger.info(f"WebSocket client disconnected. Total clients: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
-        # We broadcast the JSON object to all connected frontend clients
+        """Broadcast JSON message to all connected clients, cleaning up dead connections."""
         disconnected = []
         for connection in self.active_connections:
             try:
@@ -29,22 +31,43 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning(f"Failed to send to WebSocket client: {e}")
                 disconnected.append(connection)
-                
-        # Clean up dead connections
         for conn in disconnected:
             self.disconnect(conn)
 
 manager = ConnectionManager()
 
+
+def _register_event_bus_listeners():
+    """
+    Register the WebSocket broadcaster as a listener on the global property event bus.
+    This is the bridge that makes backend state changes visible in real-time on the frontend.
+    """
+    from app.services.property_state.property_events import property_bus
+    from app.services.property_state.property_state_machine import PropertyEvent
+
+    async def on_event(payload: dict):
+        await manager.broadcast(payload)
+
+    # Register the WS broadcaster for EVERY property lifecycle event
+    for event in PropertyEvent:
+        property_bus.on(event, on_event)
+
+    logger.info("✅ Real-time WebSocket bridge connected to property event bus.")
+
+
+@router.on_event("startup")
+async def startup():
+    _register_event_bus_listeners()
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
+    # Send an initial handshake so the frontend knows it's connected
+    await websocket.send_json({"event": "CONNECTED", "message": "ArchNext Real-Time stream active."})
     try:
         while True:
-            # We keep the connection open, primarily for server->client push
-            # but allow the client to send a ping or payload if needed
             data = await websocket.receive_text()
-            # Respond to ping if desired
             if data == "ping":
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
@@ -52,3 +75,4 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
+

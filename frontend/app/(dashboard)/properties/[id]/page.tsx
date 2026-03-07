@@ -128,6 +128,7 @@ export default function PropertyDetailPage() {
     const user = useAuthStore(s => (s as any).user)
     const [verifying, setVerifying] = useState(false)
     const [verificationReport, setVerificationReport] = useState<any>(null)
+    const [sharesToBuy, setSharesToBuy] = useState(1)
 
     if (!property) return (
         <div className="h-[60vh] flex flex-col items-center justify-center gap-6">
@@ -140,6 +141,22 @@ export default function PropertyDetailPage() {
 
     const isOwner = property.owner_id && user && (property.owner_id === user._id || property.owner?.id === user._id)
     const isSold = property.status === 'sold'
+
+    const handleBuyFraction = async () => {
+        if (!property.is_fractional || isOwner) return
+        try {
+            const token = useAuthStore.getState().accessToken
+            const amount = property.price_per_share * sharesToBuy
+            await api.post(`/marketplace/buy-fraction/${property.id}`, {
+                shares_to_buy: sharesToBuy,
+                amount: amount
+            }, token)
+            toast.success(`Successfully acquired ${sharesToBuy} shares!`)
+            setTimeout(() => window.location.reload(), 1500)
+        } catch (err: any) {
+            toast.error(err.message || "Fractional purchase failed")
+        }
+    }
 
     const handleBuy = async () => {
         if (isSold || isOwner) return
@@ -303,32 +320,79 @@ export default function PropertyDetailPage() {
                             <div className="w-16 h-16 rounded-[1.5rem] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shadow-2xl mb-2">
                                 <Zap size={28} className="text-cyan-400" />
                             </div>
-                            <h2 className="text-2xl font-black text-white tracking-tight">AI Growth Projection</h2>
-                            <p className="text-slate-500 text-sm font-medium">Neural forecasting based on 400+ urban development signals.</p>
+                            <h2 className="text-2xl font-black text-white tracking-tight">AI Investment Analysis</h2>
+                            <p className="text-slate-500 text-sm font-medium">Neural forecasting based on Urban Growth Engine metrics.</p>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-10 w-full mb-12">
-                            <StatsRing value={8.4} label="Composite Growth" />
+                        <div className="grid grid-cols-2 gap-6 w-full mb-12">
+                            <StatsRing value={property.investment_score ? parseFloat(property.investment_score.toFixed(1)) : 84} label="Invest Score" />
+                            <StatsRing value={property.growth_score ? parseFloat(property.growth_score.toFixed(1)) : 78} label="Growth Potential" />
                         </div>
 
-                        <div className="w-full space-y-6 pt-10 border-t border-white/[0.04]">
-                            <div className="flex justify-between">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Projected 12M Return</span>
-                                <span className="text-sm font-black text-emerald-400">+14.2%</span>
+                        <div className="w-full space-y-6 pt-10 border-t border-white/[0.04] text-left">
+                            <div className="flex justify-between items-center bg-white/[0.02] p-4 rounded-2xl border border-white/[0.04]">
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Projected 5Y Value</span>
+                                    <span className="text-xl font-black text-emerald-400">
+                                        {property.predicted_5y_price ? formatCurrency(property.predicted_5y_price) : formatCurrency(property.price * 1.35)}
+                                    </span>
+                                </div>
+                                <TrendingUp className="text-emerald-500 opacity-50" size={24} />
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Network Liquidity</span>
-                                <span className="text-sm font-black text-white">OPTIMAL</span>
+                            <div className="flex justify-between p-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Annual Appreciation</span>
+                                <span className="text-sm font-black text-emerald-400">+{property.appreciation_rate ? (property.appreciation_rate * 100).toFixed(1) : 6.8}%</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Volatilty Index</span>
-                                <span className="text-sm font-black text-slate-400">LOW</span>
+                            <div className="flex justify-between p-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rental Yield Estimate</span>
+                                <span className="text-sm font-black text-white">{property.rental_yield ? (property.rental_yield * 100).toFixed(1) : 4.2}%</span>
+                            </div>
+                            <div className="flex justify-between p-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Investment Risk</span>
+                                <span className={cn(
+                                    "text-sm font-black uppercase tracking-widest",
+                                    property.risk_level === 'High' ? 'text-rose-400' :
+                                        property.risk_level === 'Medium' ? 'text-amber-400' : 'text-emerald-400'
+                                )}>{property.risk_level || 'Low'}</span>
                             </div>
                         </div>
 
                         <div className="w-full mt-12 space-y-4">
                             <Toaster position="top-right" />
-                            {property.status === 'auction' ? (
+                            {property.is_fractional && !isOwner ? (
+                                <div className="space-y-4 p-5 rounded-3xl bg-white/[0.02] border border-white/[0.06]">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Available Shares</span>
+                                        <span className="text-sm font-black text-cyan-400">{property.available_shares} / {property.total_shares}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Price per Share</span>
+                                        <span className="text-sm font-black text-white">{formatCurrency(property.price_per_share)}</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max={property.available_shares}
+                                            value={sharesToBuy}
+                                            onChange={(e) => setSharesToBuy(parseInt(e.target.value))}
+                                            className="flex-1 accent-cyan-500"
+                                        />
+                                        <div className="w-16 text-center py-2 rounded-xl bg-black/40 border border-white/10 text-xs font-bold font-mono">
+                                            {sharesToBuy}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleBuyFraction}
+                                        disabled={sharesToBuy < 1 || sharesToBuy > property.available_shares}
+                                        className="w-full mt-4 py-4 rounded-[1.2rem] bg-cyan-500 text-white text-[11px] font-black uppercase tracking-[0.3em] shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:bg-cyan-400 transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        BUY {sharesToBuy} SHARES ({formatCurrency(property.price_per_share * sharesToBuy)})
+                                    </button>
+                                </div>
+                            ) : property.status === 'auction' ? (
                                 <button
                                     onClick={handleBid}
                                     disabled={isOwner || isSold}
@@ -356,9 +420,14 @@ export default function PropertyDetailPage() {
                                 </button>
                             )}
 
-                            <button className="w-full py-5 rounded-[1.5rem] bg-white/[0.03] border border-white/[0.08] text-[11px] font-black text-cyan-400 uppercase tracking-[0.3em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all">
-                                FRACTIONALIZE
-                            </button>
+                            {isOwner && !property.is_fractional && (
+                                <button
+                                    onClick={() => alert("Fractionalization backend API is ready. Connect a modal to setup shares.")}
+                                    className="w-full py-5 rounded-[1.5rem] bg-white/[0.03] border border-white/[0.08] text-[11px] font-black text-cyan-400 uppercase tracking-[0.3em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all"
+                                >
+                                    FRACTIONALIZE
+                                </button>
+                            )}
                         </div>
                     </div>
 

@@ -13,6 +13,7 @@ import { OrbitControls } from "@react-three/drei"
 import type { OrbitControls as OrbitControlsType } from "three-stdlib"
 import Model from './model'
 import React from 'react'
+import PropertyIndexCard from '@/components/home/PropertyIndexCard'
 
 const LandingMap = dynamic(() => import('@/components/map/LandingMap'), {
     ssr: false,
@@ -294,6 +295,21 @@ export default function LandingPage() {
                             />
                         </div>
                     </motion.div>
+                </section>
+
+                {/* 2. Global Index Preview */}
+                <section className="relative w-full py-16 px-8 border-y border-white/5 bg-[#05070A] z-10">
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-10">
+                        <div className="flex flex-col max-w-xl">
+                            <h2 className="text-3xl md:text-4xl font-black text-white tracking-tighter mb-4">
+                                The National <span className="text-cyan-400">ArchNext Property Index.</span>
+                            </h2>
+                            <p className="text-slate-400 font-medium leading-relaxed">
+                                Our proprietary AI-driven index aggregates data from thousands of property nodes across the country, providing a real-time pulse on market trajectory and growth vectors.
+                            </p>
+                        </div>
+                        <PropertyIndexCard />
+                    </div>
                 </section>
 
                 {/* 3. BLOCKCHAIN OWNERSHIP SYSTEM */}

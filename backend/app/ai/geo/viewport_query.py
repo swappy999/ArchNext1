@@ -13,6 +13,6 @@ async def get_properties_in_viewport(ne_lng: float, ne_lat: float, sw_lng: float
             PropertyDB.latitude <= ne_lat,
             PropertyDB.longitude >= sw_lng,
             PropertyDB.longitude <= ne_lng
-        ).limit(100)
+        ).limit(1000) # Increased limit significantly to get true ward-by-ward data parity
         result = await session.execute(stmt)
         return [_to_dict(p) for p in result.scalars().all()]

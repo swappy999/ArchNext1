@@ -2,6 +2,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from app.models.base import Base
+from app.models.property_model import PropertyDB
+from app.models.escrow_model import EscrowDB
+from app.models.shareholder_model import ShareholderDB
 
 # SQLAlchemy Async Engine
 # We use a small local pool with pre_ping to handle Supavisor's aggressive disconnects

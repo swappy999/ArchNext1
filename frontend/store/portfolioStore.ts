@@ -33,6 +33,7 @@ interface PortfolioState {
     loading: boolean
     _lastFetched: number
     fetchPortfolio: () => Promise<void>
+    invalidatePortfolio: () => void
 }
 
 export const usePortfolioStore = create<PortfolioState>((set, get) => ({
@@ -74,4 +75,5 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
             set({ loading: false })
         }
     },
+    invalidatePortfolio: () => set({ _lastFetched: 0 }),
 }))

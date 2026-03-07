@@ -24,6 +24,12 @@ class BuyRequest(BaseModel):
     price_matic: float | None = None
     tx_hash: str | None = None
 
+class FractionalBuyRequest(BaseModel):
+    shares_to_buy: int
+    amount: float
+
+from app.services.escrow_service import lock_funds, execute_fractional_purchase
+
 @router.get("/listings")
 async def get_all_listings():
     """
@@ -76,9 +82,9 @@ async def buy_listing(
         raise ValidationError(detail="Property is no longer available for direct sale")
 
     wallet = current_user.get("wallet_address", current_user.get("email"))
-    # Strictly use the internal DB ID (_id) for portfolio tracking
-    user_id = str(current_user.get("_id"))
-    if not user_id:
+    # Strictly use the internal DB ID (_id or id) for portfolio tracking
+    user_id = str(current_user.get("_id", current_user.get("id")))
+    if not user_id or user_id == "None":
         raise AuthenticationError(detail="User identification lost")
 
     # 2. Determine if it's considered "On-Chain"
@@ -125,4 +131,38 @@ async def buy_listing(
             "message": "Asset acquired successfully. View in your portfolio.",
             "is_nft": False
         }
+
+@router.post("/buy-fraction/{property_id}")
+async def buy_fraction(
+    property_id: str,
+    body: FractionalBuyRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Buys fractions of a tokenized property via Smart Escrow.
+    """
+    wallet = current_user.get("wallet_address", current_user.get("email"))
+    
+    # 1. Lock funds
+    escrow_id = await lock_funds(wallet, body.amount, property_id)
+    if not escrow_id:
+        raise HTTPException(status_code=400, detail="Failed to lock funds for purchase.")
+        
+    # 2. Execute Purchase
+    success = await execute_fractional_purchase(wallet, property_id, body.shares_to_buy, escrow_id)
+    
+    if not success:
+        from app.services.escrow_service import refund_bid
+        await refund_bid(escrow_id)
+        raise HTTPException(status_code=400, detail="Fractional purchase failed. Funds refunded.")
+        
+    return {
+        "property_id": property_id,
+        "shares_bought": body.shares_to_buy,
+        "amount_paid": body.amount,
+        "status": "completed",
+        "escrow_id": escrow_id,
+        "message": "Fractional shares successfully acquired!"
+    }
+
 

@@ -1,7 +1,9 @@
 from app.integrations.property_nft import get_nft_owner, check_nft_minted
 from app.integrations.blockchain import generate_property_hash
 from app.repository.property_repo import get_property_by_id, update_property
-from blockchain.blockchain_service import mint_property_nft as chain_mint
+from app.services.property_state.property_state_controller import update_property_state
+from app.services.property_state.property_state_machine import PropertyEvent
+from app.integrations.blockchain_adapter import blockchain_adapter
 from fastapi import HTTPException
 from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 
@@ -35,18 +37,36 @@ async def mint_property_nft_service(property_id: str, wallet_address: str, curre
     # 4. Generate hash (or reuse existing)
     property_hash = existing_hash or generate_property_hash(property_data)
 
-    # 5. Resolve chain and mint via hybrid router (defaults to polygon)
+    # 5. Resolve chain and mint via hybrid adapter (defaults to polygon)
+    from datetime import datetime
+    
     chain = property_data.get("chain") or "polygon"
-    mint_result = await chain_mint(
-        chain,
-        {
+    metadata_payload = {
+        "property_id": property_id,
+        "geo_coordinates": {
+            "lat": property_data.get("latitude"),
+            "lng": property_data.get("longitude")
+        },
+        "verification_hash": property_data.get("verification_hash"),
+        "ai_score": property_data.get("verification_score"),
+        "timestamp": datetime.utcnow().isoformat(),
+        # Module 2 Fractional Data
+        "is_fractional": property_data.get("is_fractional", False),
+        "total_shares": property_data.get("total_shares", 1)
+    }
+
+    mint_result = await blockchain_adapter(
+        action="mint",
+        network=chain,
+        payload={
             "wallet": wallet_address,
             "hash": property_hash,
             "property_id": property_id,
-        },
+            "metadata": metadata_payload
+        }
     )
 
-    # 6. Update DB with NFT data + chain used
+    # 6. Update DB with NFT data + chain used via State Controller
     update_data = {
         "property_hash": property_hash,
         "owner_wallet": wallet_address,
@@ -59,7 +79,8 @@ async def mint_property_nft_service(property_id: str, wallet_address: str, curre
     if mint_result.get("token_id") is not None:
         update_data["nft_token_id"] = mint_result["token_id"]
 
-    await update_property(property_id, update_data)
+    # This enforces transition and emit events internally
+    await update_property_state(PropertyEvent.NFT_MINTED, property_id, update_data)
 
     return {
         "property_id": property_id,

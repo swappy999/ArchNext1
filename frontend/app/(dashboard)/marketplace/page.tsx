@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
     ShoppingBag, Wallet, Loader2, Building2, Fingerprint,
-    Cpu, Gavel, TrendingUp, Brain, Shield, Flame, CheckCircle2
+    Cpu, Gavel, TrendingUp, Brain, Shield, Flame, CheckCircle2, Clock, Sparkles, RefreshCw
 } from 'lucide-react'
 import { useMarketplaceStore } from '@/store/marketplaceStore'
 import { useAuthStore } from '@/store/authStore'
 import { useAuctionStore } from '@/store/auctionStore'
 import { formatCurrency, shortAddress, cn } from '@/lib/utils'
+import { api } from '@/lib/api'
 import Link from 'next/link'
 import { Toaster, toast } from 'react-hot-toast'
 
@@ -48,6 +49,41 @@ function AIValuationBadge({ valuation }: { valuation: any }) {
                     <span className="sr-only">Market Tier: </span>Zone {valuation.market_tier}
                 </span>
             </div>
+        </div>
+    )
+}
+
+// ─── Auction Countdown Timer ─────────────────────────────────────────────────
+function CountdownTimer({ endTime }: { endTime: string | null }) {
+    const [timeLeft, setTimeLeft] = useState('')
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+    useEffect(() => {
+        if (!endTime) return
+        const tick = () => {
+            const end = new Date(endTime).getTime()
+            const now = Date.now()
+            const diff = end - now
+            if (diff <= 0) {
+                setTimeLeft('Ended')
+                if (intervalRef.current) clearInterval(intervalRef.current)
+                return
+            }
+            const h = Math.floor(diff / 3600000)
+            const m = Math.floor((diff % 3600000) / 60000)
+            const s = Math.floor((diff % 60000) / 1000)
+            setTimeLeft(`${h}h ${m}m ${s}s`)
+        }
+        tick()
+        intervalRef.current = setInterval(tick, 1000)
+        return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    }, [endTime])
+
+    if (!endTime || !timeLeft) return null
+    return (
+        <div className="flex items-center gap-1.5 text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">
+            <Clock size={10} className="animate-pulse" />
+            {timeLeft}
         </div>
     )
 }
@@ -138,8 +174,13 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                     <span className="text-[10px] font-black px-3 py-1.5 rounded-xl border border-white/10 bg-black/60 backdrop-blur-md text-slate-400 uppercase tracking-widest shadow-lg">
                         PROPERTY #{listing.token_id || listing.id?.slice(0, 6)}
                     </span>
+                    {listing.is_verified && (
+                        <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-md text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
+                            <CheckCircle2 size={12} /> AI Verified
+                        </span>
+                    )}
                     {isOwner && (
-                        <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/20 backdrop-blur-md text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
+                        <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/20 backdrop-blur-md text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
                             <CheckCircle2 size={12} /> YOUR ASSET
                         </span>
                     )}
@@ -166,17 +207,29 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
 
                 {/* Market Tier Badge */}
                 {listing.ai_valuation && (
-                    <div className="absolute top-5 right-5 z-20">
+                    <div className="absolute top-5 right-5 z-20 flex flex-col gap-1.5 items-end">
+                        {/* Zone Grade */}
                         <div className={cn(
                             "text-[9px] font-black px-3 py-1.5 rounded-xl backdrop-blur-md uppercase tracking-widest shadow-lg flex items-center gap-1.5",
                             listing.ai_valuation.market_tier === 'A' ? 'border border-amber-500/30 bg-amber-500/10 text-amber-400' :
                                 listing.ai_valuation.market_tier === 'B' ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-400' :
                                     'border border-slate-500/30 bg-slate-500/10 text-slate-400'
                         )}>
-                            <Flame size={10} aria-hidden="true" />
-                            <span className="sr-only">AI Market Tier </span>
-                            ZONE {listing.ai_valuation.market_tier}
+                            <Flame size={10} />
+                            Zone {listing.ai_valuation.market_tier}
                         </div>
+                        {/* Grade badge */}
+                        {listing.tier && (
+                            <div className={cn(
+                                "text-[8px] font-black px-2.5 py-1 rounded-lg backdrop-blur-md uppercase tracking-widest",
+                                listing.tier === 'Grade A' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                    listing.tier === 'Grade B' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                        listing.tier === 'Grade C' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                            'bg-slate-800 text-slate-400 border border-slate-600/30'
+                            )}>
+                                {listing.tier}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -220,6 +273,11 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                         <p className="text-xl font-black text-white tracking-tighter group-hover:text-cyan-400 transition-colors glow-text truncate pr-2">
                             {listing.price_listed_matic ? `${listing.price_listed_matic} POL` : formatCurrency(listing.price || 0)}
                         </p>
+                        {listing.status === 'auction' && listing.auction_end_time && (
+                            <div className="mt-1">
+                                <CountdownTimer endTime={listing.auction_end_time} />
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex gap-2">
@@ -240,13 +298,14 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                                 disabled={isBuying || buying || isSold || isOwner}
                                 aria-disabled={isBuying || buying || isSold || isOwner}
                                 className={cn(
-                                    (isSold || isOwner) ? "bg-slate-800 text-slate-300 cursor-not-allowed" : "bg-white text-black hover:bg-cyan-50 hover:shadow-cyan-500/20"
+                                    "px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all",
+                                    (isSold || isOwner) ? "bg-slate-800 text-slate-400 cursor-not-allowed" : "bg-white text-black hover:bg-cyan-50 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] shadow-md"
                                 )}
                                 aria-label={isSold ? "Property Sold" : isOwner ? "Your Property" : "Buy Property Now"}
                             >
                                 {(isBuying || buying) ? <Loader2 size={12} className="animate-spin" /> : <Wallet size={12} />}
                                 <span className="relative z-10">
-                                    {(isBuying || buying) ? 'PROCESSING' : isSold ? 'SOLD' : isOwner ? 'YOUR ASSET' : 'BUY NOW'}
+                                    {(isBuying || buying) ? 'PROCESSING' : isSold ? 'SOLD OUT' : isOwner ? 'YOUR ASSET' : 'BUY NOW'}
                                 </span>
                             </button>
                         ) : isOwner ? (
@@ -388,12 +447,36 @@ export default function MarketplacePage() {
                     </div>
                     <h2 className="text-2xl font-black text-slate-300 tracking-tight">Market Offline</h2>
                     <p className="text-slate-300 mt-2 max-w-xs text-center font-medium">No assets match current search criteria.</p>
-                    <button
-                        onClick={() => setFilter('all')}
-                        className="mt-10 px-8 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all"
-                    >
-                        Reset Filters
-                    </button>
+                    <div className="flex gap-3 mt-10 flex-wrap justify-center">
+                        <button
+                            onClick={() => setFilter('all')}
+                            className="px-8 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all flex items-center gap-2"
+                        >
+                            <RefreshCw size={12} /> Reset Filters
+                        </button>
+                        <button
+                            onClick={async () => {
+                                const token = useAuthStore.getState().accessToken
+                                if (!token) { toast.error('Please sign in to seed market data.'); return }
+                                const seedToast = toast.loading('Seeding marketplace data...')
+                                try {
+                                    const res = await api.post('/dev/seed-market', {}, token)
+                                    toast.success(`✅ ${res.message || 'Market seeded! Refreshing...'}`, { id: seedToast, duration: 4000 })
+                                        // Force a full refresh
+                                        ; (useMarketplaceStore as any).setState({ _lastFetched: 0, listings: [] })
+                                    await useMarketplaceStore.getState().fetchListings()
+                                } catch (e: any) {
+                                    toast.error(e?.message || 'Seed failed — is the backend running?', { id: seedToast })
+                                }
+                            }}
+                            className="px-8 py-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/20 transition-all flex items-center gap-2"
+                        >
+                            <Sparkles size={12} /> Seed Market
+                        </button>
+                    </div>
+                    <p className="mt-4 text-[9px] text-slate-600 text-center max-w-xs">
+                        “Seed Market” populates the marketplace with 6 sample Kolkata properties assigned to your account.
+                    </p>
                 </motion.div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

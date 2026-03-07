@@ -3,16 +3,17 @@ from app.core.verification.errors.exceptions import AppError, NotFoundError, Val
 from fastapi import Query
 from app.core.verification.middlewares.auth_checks import get_current_user
 from app.services.property_service import create_property_service, verify_owner
-from app.schemas.property_schema import PropertyCreate, PropertyResponse, PropertyUpdate
-from typing import List, Optional
 from app.repository.property_repo import (
     get_all_properties, 
     get_nearby_properties, 
     filter_properties,
     get_property_by_id,
     update_property,
-    delete_property_repo
+    delete_property_repo,
+    tokenize_property
 )
+from app.schemas.property_schema import PropertyCreate, PropertyResponse, PropertyUpdate, PropertyTokenizeRequest
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -98,3 +99,40 @@ async def delete_property_endpoint(
         raise HTTPException(status_code=500, detail="Delete failed")
         
     return {"message": "Property deleted successfully"}
+
+@router.post("/{id}/tokenize", response_model=dict)
+async def tokenize_property_endpoint(
+    id: str,
+    data: PropertyTokenizeRequest,
+    current_user = Depends(get_current_user)
+):
+    """
+    Splits an existing property into fractional shares. Only available to the owner.
+    """
+    prop = await get_property_by_id(id)
+    if not prop:
+        raise NotFoundError(detail="Property not found")
+        
+    verify_owner(prop, current_user)
+    
+    # Needs to be whole properties that haven't been fractionalized yet
+    if prop.get("is_fractional"):
+        raise ValidationError(detail="Property is already tokenized into fractions.")
+
+    success = await tokenize_property(
+        property_id=id,
+        owner_id=current_user["uid"],
+        total_shares=data.total_shares,
+        price_per_share=data.price_per_share
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to tokenize property.")
+        
+    return {
+        "message": "Property successfully tokenized into fractions.",
+        "fractionalized": True,
+        "total_shares": data.total_shares,
+        "price_per_share": data.price_per_share
+    }
+

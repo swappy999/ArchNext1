@@ -411,7 +411,12 @@ function AssetCard({ asset, index, onListClick }: { asset: any, index: number, o
                             NFT #{asset.nft_token_id !== undefined && asset.nft_token_id !== null ? asset.nft_token_id : '---'}
                         </span>
                     )}
-                    {asset.status === 'available' && (
+                    {asset.shares_owned && asset.total_shares && (
+                        <span className="text-[9px] font-black px-2.5 py-1 rounded-lg border border-purple-500/20 bg-purple-500/10 text-purple-400 uppercase tracking-widest shadow-lg">
+                            {((asset.shares_owned / asset.total_shares) * 100).toFixed(1)}% Fractional
+                        </span>
+                    )}
+                    {asset.status === 'available' && !asset.is_fractional && (
                         <span className="text-[9px] font-black px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 uppercase tracking-widest shadow-lg animate-pulse">LISTED</span>
                     )}
                 </div>
@@ -671,8 +676,8 @@ export default function PortfolioPage() {
                         <Target size={20} className="text-emerald-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-black text-white tracking-tight">Active Bids</h2>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Your current bids on auction properties</p>
+                        <h2 className="text-2xl font-black text-white tracking-tight">Active Network & Escrow Bids</h2>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Your locked funds across auction properties</p>
                     </div>
                 </div>
 

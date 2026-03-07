@@ -17,6 +17,7 @@ const navItems = [
     { href: '/properties', label: 'My Properties', icon: Building2 },
     { href: '/marketplace', label: 'Marketplace', icon: ShoppingBag },
     { href: '/portfolio', label: 'Portfolio', icon: Briefcase },
+    { href: '/investor', label: 'Investor Analytics', icon: Activity },
     { href: '/prediction', label: 'Market Insights', icon: Brain },
 ]
 

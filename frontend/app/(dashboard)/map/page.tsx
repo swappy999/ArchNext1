@@ -6,7 +6,7 @@ import {
     Layers, Thermometer, Navigation2, Activity,
     TrendingUp, Crosshair, Zap, Scan, Globe,
     ShieldCheck, Eye, EyeOff, Hexagon, Radio,
-    Building2, Maximize, ChevronRight, Brain
+    Building2, Maximize, ChevronRight, Brain, MapPin, Loader2
 } from 'lucide-react'
 import { useMapStore } from '@/store/mapStore'
 import { formatCurrencyCompact } from '@/lib/utils'
@@ -14,9 +14,8 @@ import { api } from '@/lib/api'
 import Map, { MapRef, useControl } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { MapboxOverlay } from '@deck.gl/mapbox'
-import { ScatterplotLayer } from '@deck.gl/layers'
+import { ScatterplotLayer, PolygonLayer } from '@deck.gl/layers'
 import { HeatmapLayer } from '@deck.gl/aggregation-layers'
-import { PolygonLayer } from '@deck.gl/layers'
 import { cn } from '@/lib/utils'
 import IntelTooltip from '@/components/map/IntelTooltip'
 
@@ -31,6 +30,9 @@ export default function MapPage() {
     const [clickPred, setClickPred] = useState<any>(null)
     const [clickLoading, setClickLoading] = useState(false)
     const [clickArea, setClickArea] = useState<string>("1500")
+    // Reverse geocode state
+    const [clickAddress, setClickAddress] = useState<string | null>(null)
+    const [clickGeoLoading, setClickGeoLoading] = useState(false)
 
     const {
         viewport, activeLayers, hoverInfo, viewMode,
@@ -38,7 +40,6 @@ export default function MapPage() {
         loading, cinematicEntry, propertyCount, mlGeoJson,
         setBounds, toggleLayer, setHoverInfo,
         setViewMode, setCinematicEntry, setViewport,
-        synthMode, setSynthMode,
         selectedFeature, setSelectedFeature
     } = useMapStore()
 
@@ -150,32 +151,57 @@ export default function MapPage() {
         })
     }, [setBounds])
 
+    // ─── Reverse Geocoding (Nominatim / OpenStreetMap) ───────────────────────
+    const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`,
+                { headers: { 'Accept-Language': 'en', 'User-Agent': 'ArchNext/1.0' } }
+            )
+            if (!res.ok) throw new Error('Nominatim error')
+            const data = await res.json()
+            // Build a concise address string
+            const a = data.address || {}
+            const parts = [
+                a.road || a.pedestrian || a.footway || a.cycleway,
+                a.neighbourhood || a.suburb || a.village || a.town,
+                a.city_district || a.county,
+                a.city || a.town || a.municipality,
+                a.state,
+            ].filter(Boolean)
+            return parts.length > 0 ? parts.join(', ') : data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+        } catch {
+            return `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`
+        }
+    }, [])
+
     // ─── Click Prediction Handler ─────────────────────────────────────────
     const onMapClick = useCallback(async (e: any) => {
-        // Ignore clicks if they intercept deck.gl layer picks 
-        // (deck.gl handles its own hover/click logic separately over the base map)
-        if (e.originalEvent.target.classList.contains('mapboxgl-canvas-container')) {
-            return;
-        }
+        if (e.originalEvent.target.classList.contains('mapboxgl-canvas-container')) return
 
-        const { lng, lat } = e.lngLat;
-        setClickLoading(true);
-        try {
-            const res = await api.post('/prediction/predict-price', { lat, lng });
-            setClickPred({
-                lat: lat,
-                lng: lng,
-                price_sqft: res.predicted_price,
-                zone: res.zone,
-                ward: res.ward
-            });
-        } catch (err) {
-            console.error("AI Price Prediction Error:", err);
-            setClickPred({ error: "Location outside modeling bounds or service error" });
-        } finally {
-            setClickLoading(false);
+        const { lng, lat } = e.lngLat
+        setClickPred(null)
+        setClickAddress(null)
+        setClickLoading(true)
+        setClickGeoLoading(true)
+
+        // Run AI prediction and reverse geocode in parallel
+        const [predResult, geoResult] = await Promise.allSettled([
+            api.post('/prediction/predict-price', { lat, lng }),
+            reverseGeocode(lat, lng)
+        ])
+
+        setClickGeoLoading(false)
+        setClickAddress(geoResult.status === 'fulfilled' ? geoResult.value : null)
+
+        if (predResult.status === 'fulfilled') {
+            const res = predResult.value
+            setClickPred({ lat, lng, price_sqft: res.predicted_price, zone: res.zone, ward: res.ward })
+        } else {
+            setClickPred({ lat, lng, error: 'Location outside modeling bounds or service error' })
         }
-    }, []);
+        setClickLoading(false)
+    }, [reverseGeocode])
 
     // ─── View Mode Toggle ─────────────────────────────────────────────────
     useEffect(() => {
@@ -202,82 +228,29 @@ export default function MapPage() {
     const deckLayers = useMemo(() => {
         const layers: any[] = []
 
-        // Layer 1 — Thermal Intelligence (City-Wide Heatmap)
-        // Strictly isolated to the heatmap toggle
-        if (activeLayers.heatmap && heatmap && heatmap.length > 0) {
-            layers.push(
-                new HeatmapLayer({
-                    id: 'thermal-intel-layer',
-                    data: heatmap,
-                    getPosition: (d: any) => [d.longitude, d.latitude],
-                    getWeight: (d: any) => d.weight || 0,
-                    radiusPixels: 100, // Balanced radius for city-wide view
-                    intensity: 2.0,
-                    threshold: 0.1,
-                    colorRange: [
-                        [6, 25, 60, 0],          // Transparent
-                        [14, 165, 233, 100],     // Cyan-500
-                        [34, 211, 238, 160],     // Cyan-400
-                        [34, 211, 238, 200],     // Cyan glow
-                        [103, 232, 249, 220],    // Bright cyan
-                        [165, 243, 252, 255],    // White-cyan
-                    ],
-                    aggregation: 'SUM',
-                    updateTriggers: {
-                        getWeight: [heatmap]
-                    }
-                })
-            )
-        }
+        // Filter utility for property nodes
+        const filterProperties = (f: any) => {
+            if (f.properties.is_grid) return false;
+            return true;
+        };
 
-        // Layer 6 — AI Synthesis Heatmap (ML-driven)
-        if (activeLayers.synth && mlGeoJson?.features) {
-            // Use real property nodes for high-fidelity synthesis instead of sparse grid points
-            const propFeatures = mlGeoJson.features.filter((f: any) => !f.properties.is_grid);
+        // Layer 2 — Ward Boundaries (Base Picking Layer)
+        // This is unconditionally added to the deck to ensure Hovers always work, 
+        // but visually toggled via opacity/color to match the activeLayers.zones state.
+        if (zones && zones.length > 0) {
+            const isZonesVisible = activeLayers.zones;
 
-            layers.push(
-                new HeatmapLayer({
-                    id: 'ai-synthesis-layer',
-                    data: propFeatures,
-                    getPosition: (d: any) => d.geometry.coordinates,
-                    getWeight: (d: any) => {
-                        const p = d.properties;
-                        if (synthMode === 'infra') return p.infra_score || 0;
-                        if (synthMode === 'mobility') return p.access_score || 0;
-                        if (synthMode === 'demand') return p.demand_score || 0;
-                        // Default: Market Value normalized
-                        return (p.price_index || 0) / 20000;
-                    },
-                    radiusPixels: 80,
-                    intensity: 2.0,
-                    threshold: 0.05,
-                    colorRange: [
-                        [10, 20, 40, 0],
-                        [6, 182, 212, 120],  // Cyan
-                        [59, 130, 246, 180], // Blue
-                        [139, 92, 246, 220], // Violet
-                        [236, 72, 153, 255]  // Pink (Peak)
-                    ],
-                    updateTriggers: {
-                        getWeight: [synthMode]
-                    }
-                })
-            )
-        }
-
-        // Layer 2 — Ward Boundaries (2D / Reference)
-        if (activeLayers.zones && zones && zones.length > 0) {
             layers.push(
                 new PolygonLayer({
                     id: 'ward-polygon-layer',
                     data: zones,
                     getPolygon: (d: any) => d.polygon,
-                    getFillColor: [14, 165, 233, 40],
-                    getLineColor: [14, 165, 233, 100],
+                    getFillColor: isZonesVisible ? [14, 165, 233, 40] : [0, 0, 0, 0],
+                    getLineColor: isZonesVisible ? [14, 165, 233, 100] : [0, 0, 0, 0],
                     getElevation: 0,
                     extruded: false,
-                    wireframe: true,
-                    lineWidthMinPixels: 1,
+                    wireframe: isZonesVisible,
+                    lineWidthMinPixels: isZonesVisible ? 1 : 0,
                     pickable: true,
                     onClick: (info: any) => {
                         if (info.object) {
@@ -333,7 +306,7 @@ export default function MapPage() {
 
         // Layer 3 — Property Nodes (Scatterplot)
         if (activeLayers.properties && mlGeoJson?.features) {
-            const propFeatures = mlGeoJson.features.filter((f: any) => !f.properties.is_grid);
+            const propFeatures = mlGeoJson.features.filter(filterProperties);
 
             layers.push(
                 new ScatterplotLayer({
@@ -343,21 +316,21 @@ export default function MapPage() {
                     getRadius: (d: any) => d.properties.tier === 'premium' ? 60 : 30,
                     getFillColor: (d: any) => {
                         const s = d.properties.status;
-                        if (s === 'owned') return [59, 130, 246, 160];    // Blue
-                        if (s === 'auction') return [168, 85, 247, 160];  // Purple
-                        if (s === 'sold') return [239, 68, 68, 160];      // Red
-                        if (s === 'listed') return [245, 158, 11, 160];    // Amber
-                        if (s === 'verified') return [6, 182, 212, 160];  // Cyan
-                        return [16, 185, 129, 160];                       // Green (Available/Default)
+                        if (s === 'minted' || s === 'owned') return [59, 130, 246, 160];    // Blue
+                        if (s === 'auction') return [168, 85, 247, 160];                    // Purple
+                        if (s === 'listed') return [249, 115, 22, 160];                     // Orange
+                        if (s === 'verified') return [16, 185, 129, 160];                   // Green
+                        if (s === 'sold') return [239, 68, 68, 160];                        // Red
+                        return [100, 116, 139, 160];                                        // Gray (Draft/Default)
                     },
                     getLineColor: (d: any) => {
                         const s = d.properties.status;
-                        if (s === 'owned') return [59, 130, 246, 255];    // Blue
-                        if (s === 'auction') return [168, 85, 247, 255];  // Purple
-                        if (s === 'sold') return [239, 68, 68, 255];      // Red
-                        if (s === 'listed') return [245, 158, 11, 255];    // Amber
-                        if (s === 'verified') return [6, 182, 212, 255];  // Cyan
-                        return [16, 185, 129, 255];                       // Green (Available/Default)
+                        if (s === 'minted' || s === 'owned') return [59, 130, 246, 255];    // Blue
+                        if (s === 'auction') return [168, 85, 247, 255];                    // Purple
+                        if (s === 'listed') return [249, 115, 22, 255];                     // Orange
+                        if (s === 'verified') return [16, 185, 129, 255];                   // Green
+                        if (s === 'sold') return [239, 68, 68, 255];                        // Red
+                        return [100, 116, 139, 255];                                        // Gray (Draft/Default)
                     },
                     lineWidthMinPixels: 1,
                     stroked: true,
@@ -394,8 +367,32 @@ export default function MapPage() {
             )
         }
 
+        // Layer 6 - Thermal Intel Heatmap
+        if (activeLayers.intel && heatmap && heatmap.length > 0) {
+            layers.push(
+                new HeatmapLayer({
+                    id: 'thermal-heatmap',
+                    data: heatmap,
+                    getPosition: (d: any) => [d.longitude, d.latitude],
+                    getWeight: (d: any) => d.weight || 0.5,
+                    radiusPixels: 100,
+                    intensity: 1.0,
+                    threshold: 0.05,
+                    opacity: 0.45,
+                    colorRange: [
+                        [26, 36, 61],
+                        [73, 102, 172],
+                        [129, 161, 221],
+                        [253, 237, 176],
+                        [248, 114, 88],
+                        [188, 20, 26]
+                    ]
+                })
+            )
+        }
+
         return layers
-    }, [activeLayers, heatmap, zones, mlGeoJson, pulsePoints, viewMode, setHoverInfo, synthMode])
+    }, [activeLayers, zones, mlGeoJson, pulsePoints, heatmap, viewMode, setHoverInfo])
 
     // DeckGL overlay hook for react-map-gl: create only ONCE
     const deckControl = useMemo(() => {
@@ -422,12 +419,11 @@ export default function MapPage() {
 
     // ─── Layer Config ─────────────────────────────────────────────────────
     const layerConfig = [
-        { id: 'heatmap', label: 'Thermal Intel', icon: Thermometer, color: 'cyan' },
+        { id: 'intel', label: 'Thermal Intel', icon: Thermometer, color: 'rose' },
         { id: 'zones', label: 'Ward Boundaries', icon: Hexagon, color: 'indigo' },
         { id: 'properties', label: 'Property Nodes', icon: Navigation2, color: 'emerald' },
         { id: 'pulse', label: 'Urban Pulse', icon: Radio, color: 'amber' },
         { id: 'buildings', label: '3D Structures', icon: Building2, color: 'blue' },
-        { id: 'synth', label: 'AI Synthesis', icon: Brain, color: 'rose' },
     ]
 
     const colorMap: Record<string, string> = {
@@ -440,7 +436,8 @@ export default function MapPage() {
     }
 
     const activeCount = Object.values(activeLayers).filter(Boolean).length
-    const displayZone = (selectedFeature?.polygon ? selectedFeature : currentZone) || { count: 0, growth_score: 0, avg_price: 0, thermal_index: 0, tier: 'unknown' };
+    const hoveredWard = (hoverInfo?.layer === 'zones' && hoverInfo.object) ? hoverInfo.object : null;
+    const displayZone = hoveredWard || (selectedFeature?.polygon ? selectedFeature : currentZone) || { count: 0, growth_score: 0, avg_price: 0, thermal_index: 0, tier: 'unknown' };
 
 
     return (
@@ -608,9 +605,10 @@ export default function MapPage() {
                                         </div>
                                         <div className={cn(
                                             "px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border",
-                                            displayZone.tier === 'premium' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                displayZone.tier === 'high' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                    'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                            displayZone.tier === 'Grade A' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                displayZone.tier === 'Grade B' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                    displayZone.tier === 'Grade C' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                                        'bg-slate-500/10 text-slate-400 border-slate-500/20'
                                         )}>
                                             {displayZone.tier || 'STANDARD'}
                                         </div>
@@ -621,7 +619,9 @@ export default function MapPage() {
                                             <div>
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Thermal Index</p>
                                                 <div className="flex items-baseline gap-2">
-                                                    <h3 className="text-3xl font-black text-white tracking-tighter">{displayZone.thermal_index || 0}</h3>
+                                                    <h3 className="text-3xl font-black text-white tracking-tighter">
+                                                        {displayZone.thermal_index ? Math.round(displayZone.thermal_index * 100) : 0}
+                                                    </h3>
                                                     <span className="text-[10px] font-bold text-cyan-400 flex items-center gap-1">
                                                         <Zap size={10} /> AI Score
                                                     </span>
@@ -644,7 +644,7 @@ export default function MapPage() {
                                             <div>
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-0.5">Median Val</p>
                                                 <p className="text-base font-bold text-slate-300 tracking-tight">
-                                                    {formatCurrencyCompact(displayZone.avg_price || 0)}
+                                                    {displayZone.avg_price ? formatCurrencyCompact(displayZone.avg_price) : "₹0"}
                                                 </p>
                                             </div>
                                             <div>
@@ -652,24 +652,6 @@ export default function MapPage() {
                                                 <p className="text-base font-bold text-slate-300 tracking-tight">{displayZone.count || 0}</p>
                                             </div>
                                         </div>
-
-                                        {/* AI Parameter Sub-grid */}
-                                        {displayZone.ml_profile && (
-                                            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/[0.04]">
-                                                <div className="text-center">
-                                                    <p className="text-[7px] font-black text-slate-600 uppercase">Infra</p>
-                                                    <p className="text-[10px] font-bold text-cyan-400">{Math.round(displayZone.ml_profile.infra_score * 100)}%</p>
-                                                </div>
-                                                <div className="text-center border-x border-white/[0.04]">
-                                                    <p className="text-[7px] font-black text-slate-600 uppercase">Mobility</p>
-                                                    <p className="text-[10px] font-bold text-blue-400">{Math.round(displayZone.ml_profile.access_score * 100)}%</p>
-                                                </div>
-                                                <div className="text-center">
-                                                    <p className="text-[7px] font-black text-slate-600 uppercase">Demand</p>
-                                                    <p className="text-[10px] font-bold text-amber-400">{Math.round(displayZone.ml_profile.demand_score * 100)}%</p>
-                                                </div>
-                                            </div>
-                                        )}
 
                                         <button
                                             onClick={() => {
@@ -706,41 +688,6 @@ export default function MapPage() {
                                 </div>
                             )}
 
-                            {/* Synth Strategy Selector (Independent of Zone count) */}
-                            <AnimatePresence>
-                                {activeLayers.synth && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                        className="bg-[#0a0e1a]/80 backdrop-blur-2xl p-2 rounded-2xl flex flex-col gap-1 border border-white/[0.06] shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
-                                    >
-                                        <div className="px-3 py-2 flex items-center gap-2">
-                                            <Brain size={12} className="text-rose-400" />
-                                            <span className="text-[9px] font-black text-rose-400/80 uppercase tracking-[0.15em]">Synth Mode</span>
-                                        </div>
-                                        {[
-                                            { id: 'price', label: 'Market Value' },
-                                            { id: 'infra', label: 'Infrastructure' },
-                                            { id: 'mobility', label: 'Mobility Index' },
-                                            { id: 'demand', label: 'Growth Vector' },
-                                        ].map((mode) => (
-                                            <button
-                                                key={mode.id}
-                                                onClick={() => setSynthMode(mode.id as any)}
-                                                className={cn(
-                                                    "px-3 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest text-left transition-all",
-                                                    synthMode === mode.id
-                                                        ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                                                        : "text-slate-600 hover:text-slate-400 hover:bg-white/[0.02]"
-                                                )}
-                                            >
-                                                {mode.label}
-                                            </button>
-                                        ))}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -856,9 +803,24 @@ export default function MapPage() {
                                             </div>
                                             <div>
                                                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Real-Time AI Valuation</p>
-                                                <p className="text-xs font-bold text-white tracking-tight">
-                                                    {clickPred.lat.toFixed(4)}, {clickPred.lng.toFixed(4)}
+                                                {/* Coordinates row */}
+                                                <p className="text-[10px] font-mono text-slate-500 tracking-tight">
+                                                    {clickPred.lat.toFixed(4)}&deg;N &thinsp;{clickPred.lng.toFixed(4)}&deg;E
                                                 </p>
+                                                {/* Reverse-geocoded address */}
+                                                <div className="mt-1 flex items-start gap-1.5">
+                                                    <MapPin size={10} className="text-cyan-400 mt-0.5 shrink-0" />
+                                                    {clickGeoLoading ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Loader2 size={10} className="animate-spin text-slate-500" />
+                                                            <span className="text-[10px] text-slate-500">Fetching address...</span>
+                                                        </div>
+                                                    ) : clickAddress ? (
+                                                        <p className="text-[11px] font-semibold text-white leading-tight">{clickAddress}</p>
+                                                    ) : (
+                                                        <p className="text-[10px] text-slate-500 italic">Address unavailable</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 

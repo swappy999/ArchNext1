@@ -29,3 +29,61 @@ async def verification_status(property_id: str):
     Public endpoint — anyone can check if a property is verified.
     """
     return await get_verification_status_service(property_id)
+
+# ─── Mock Algorand Endpoints ────────────────────────────────────────────────
+
+import uuid
+from pydantic import BaseModel
+
+class AlgoMintRequest(BaseModel):
+    token_uri: str
+
+class AlgoBuyListRequest(BaseModel):
+    token_id: int
+    price_wei: str
+
+class AlgoAuctionCreateRequest(BaseModel):
+    token_id: int
+    reserve_price_wei: str
+    duration: int
+
+class AlgoApproveRequest(BaseModel):
+    amount_wei: str
+
+class AlgoBidRequest(BaseModel):
+    on_chain_id: int
+    amount_wei: str
+
+class AlgoFinalizeRequest(BaseModel):
+    on_chain_id: int
+
+def _mock_tx():
+    return {"tx_hash": f"algo_tx_{uuid.uuid4().hex[:16]}"}
+
+@router.post("/algorand/mint")
+async def algo_mint(body: AlgoMintRequest, current_user: dict = Depends(get_current_user)):
+    return _mock_tx()
+
+@router.post("/algorand/buy")
+async def algo_buy(body: AlgoBuyListRequest, current_user: dict = Depends(get_current_user)):
+    return _mock_tx()
+
+@router.post("/algorand/list")
+async def algo_list(body: AlgoBuyListRequest, current_user: dict = Depends(get_current_user)):
+    return _mock_tx()
+
+@router.post("/algorand/auction/create")
+async def algo_auction_create(body: AlgoAuctionCreateRequest, current_user: dict = Depends(get_current_user)):
+    return _mock_tx()
+
+@router.post("/algorand/approve")
+async def algo_approve(body: AlgoApproveRequest, current_user: dict = Depends(get_current_user)):
+    return _mock_tx()
+
+@router.post("/algorand/auction/bid")
+async def algo_bid(body: AlgoBidRequest, current_user: dict = Depends(get_current_user)):
+    return _mock_tx()
+
+@router.post("/algorand/auction/finalize")
+async def algo_finalize(body: AlgoFinalizeRequest, current_user: dict = Depends(get_current_user)):
+    return _mock_tx()
