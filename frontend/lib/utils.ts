@@ -30,6 +30,34 @@ export function formatCurrencyCompact(value: number) {
     return `${sign}₹${num.toFixed(0)}`
 }
 
+export function formatDistance(meters: number): string {
+    if (meters < 1000) {
+        return `${Math.round(meters)}m`
+    }
+    return `${(meters / 1000).toFixed(1)}km`
+}
+
+/**
+ * Formats an address into "Street/Area | Ward X | City" format
+ */
+export function formatAddress(address: string, ward?: number | string): string {
+    if (!address) return 'Unknown Location'
+    const parts = address.split(',').map(p => p.trim())
+    
+    // Attempt to extract meaningful parts (often 0 is street, last is city/state)
+    const street = parts[0] || ''
+    const defaultCity = parts.length > 1 ? parts[parts.length - 1].split(' ')[0] : 'Kolkata' // simplified logic for demo
+    
+    let result = street
+    if (ward) result += ` | Ward ${ward}`
+    if (street.toLowerCase() !== defaultCity.toLowerCase()) {
+        result += ` | ${defaultCity.replace(/\d+/g, '').trim()}` // Remove zip codes
+    }
+    
+    return result
+}
+
+
 export function shortAddress(address: string) {
     if (!address) return ''
     return `${address.slice(0, 6)}...${address.slice(-4)}`

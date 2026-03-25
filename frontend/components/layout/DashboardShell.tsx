@@ -12,7 +12,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     const { isOpen, step, title, description, errorMessage, txHash, close } = useTransactionStore()
 
     return (
-        <div className="flex h-screen w-screen bg-[#0B0F1A] overflow-hidden font-sans antialiased text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-200">
+        <div className="flex w-screen bg-[var(--background)] overflow-hidden font-sans antialiased text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-200" style={{ height: '100dvh' }}>
             {/* Lightweight ambient background — no blur, pure CSS */}
             <div className="fixed inset-0 pointer-events-none" aria-hidden>
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(59,130,246,0.08)_0%,transparent_50%)]" />
@@ -34,13 +34,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 onClose={close}
             />
 
-            {/* Sidebar */}
-            <div className="z-50 shrink-0 relative">
+            {/* Sidebar — hidden on mobile, visible on lg+, z-40 to stay below navbar dropdown */}
+            <div className="z-40 shrink-0 relative hidden lg:flex">
                 <Sidebar />
             </div>
 
             {/* Main Content Area */}
-            <div className="flex flex-col flex-1 min-w-0 relative">
+            <div className="flex flex-col flex-1 min-w-0 relative overflow-hidden">
                 <Navbar />
 
                 <main className="flex-1 overflow-y-auto overflow-x-hidden relative premium-scroll">
@@ -49,14 +49,14 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.15 }}
-                        className="max-w-[1700px] mx-auto p-6 md:p-8 lg:p-10 pb-24 space-y-10"
+                        className="max-w-[1700px] mx-auto p-4 sm:p-6 md:p-8 lg:p-10 pb-24 space-y-8 lg:space-y-10"
                     >
                         {children}
                     </motion.div>
                 </main>
 
                 {/* Bottom fade */}
-                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#0B0F1A] to-transparent pointer-events-none z-10" />
+                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[var(--background)] to-transparent pointer-events-none z-10" />
             </div>
         </div>
     )

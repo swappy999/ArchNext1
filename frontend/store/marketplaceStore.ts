@@ -1,12 +1,11 @@
 import { create } from 'zustand'
 import { api } from '@/lib/api'
 import { useAuthStore } from './authStore'
-import { getEthersSigner, parseBlockchainError, useWalletStore } from './walletStore'
+import { getEthersSigner, parseBlockchainError } from './walletStore'
 import { blockchainProvider } from '@/lib/blockchainProvider'
 import { selectChain, chainLabel } from '@/lib/blockchain/selectChain'
 import type { ChainId } from '@/lib/blockchain/types'
 import { ethers } from 'ethers'
-import toast from 'react-hot-toast'
 
 interface Listing {
     id: string
@@ -35,9 +34,13 @@ interface MarketplaceState {
     listings: Listing[]
     loading: boolean
     buyingId: string | null
-    fetchListings: () => Promise<void>
+    fetchListings: (force?: boolean) => Promise<void>
     buy: (listingId: string) => Promise<void>
     prepareListProperty: (propertyId: string, priceMatic: number, priceInr: number) => Promise<any>
+    
+    // Realtime Sync
+    _ws?: WebSocket
+    subscribeToUpdates: () => void
 }
 
 export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
@@ -45,10 +48,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     loading: false,
     buyingId: null,
 
-    fetchListings: async () => {
+    fetchListings: async (force = false) => {
         const now = Date.now()
         const state = get() as any
-        if (state.listings.length > 0 && now - (state._lastFetched || 0) < 30000) return
+        if (!force && state.listings.length > 0 && now - (state._lastFetched || 0) < 30000) return
         set({ loading: true })
         try {
             const data = await api.get('/marketplace/listings')
@@ -69,14 +72,12 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
             return
         }
 
-        // ─── Step 1: AI Verify (always first) ────────────────────────────────
         tx.begin('Buying Property', 'Running AI verification checks...')
-        await new Promise(r => setTimeout(r, 500)) // brief UX delay for visibility
+        await new Promise(r => setTimeout(r, 500))
 
         let txHash = ''
 
         try {
-            // ─── Step 2: Wallet Confirmation (for on-chain NFTs) ──────────────
             const chain: ChainId = listing.chain || 'polygon'
             if (listing.is_nft && listing.price_listed_matic && listing.price_listed_matic > 0) {
                 tx.advance('wallet_confirm', 'Please confirm the transaction in your wallet...')
@@ -109,7 +110,6 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
                     const priceWei = ethers.parseEther(listing.price_listed_matic.toString())
                     const result = await adapter.buyProperty(marketplaceAddress, nftContractAddress, tokenId, priceWei)
 
-                    // ─── Step 3: Mining ───────────────────────────────────────────────
                     tx.advance('mining', `Transaction submitted — mining on ${chainLabel(chain)}...`)
                     txHash = result.txHash
 
@@ -120,11 +120,9 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
                     return
                 }
             } else {
-                // Standard (non-chain) flow — skip wallet steps 
                 tx.advance('mining', 'Processing purchase...')
             }
 
-            // ─── Step 4: DB Sync ──────────────────────────────────────────────
             tx.advance('db_sync', 'Recording ownership and syncing portfolio...')
             const token = useAuthStore.getState().accessToken
             await api.post(`/marketplace/buy/${listingId}`, {
@@ -133,7 +131,6 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
                 tx_hash: txHash,
             }, token)
 
-            // ─── Optimistic Refresh ───────────────────────────────────────────
             const { usePortfolioStore } = await import('./portfolioStore')
             usePortfolioStore.getState().invalidatePortfolio()
             usePortfolioStore.getState().fetchPortfolio()
@@ -141,14 +138,12 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
             const { usePropertyStore } = await import('./propertyStore')
             usePropertyStore.getState().syncAll()
 
-            // Remove from marketplace optimistically
             set((s) => ({
                 listings: s.listings.filter(l => l.id !== listingId),
                 buyingId: null,
                 _lastFetched: 0,
             } as any))
 
-            // ─── Step 5: Success ──────────────────────────────────────────────
             tx.complete(txHash)
 
         } catch (e: any) {
@@ -176,7 +171,6 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
             const chain: ChainId = property.chain || 'polygon'
 
             if (property.is_nft && property.nft_token_id !== undefined && property.nft_token_id !== null) {
-                // Wallet approval step
                 tx.advance('wallet_confirm', 'Please approve the marketplace to list your NFT...')
 
                 let marketplaceAddress = ''
@@ -199,7 +193,6 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
                 const adapter = selectChain(chain)
 
-                // Approve NFT (Polygon / non-mock only)
                 if (chain !== 'algorand' && !blockchainProvider.isMock()) {
                     const signer = await getEthersSigner()
                     const nftAbi = await import('@/contracts/PropertyNFT.json')
@@ -217,7 +210,6 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
                 tx.advance('mining', 'Preparing listing...')
             }
 
-            // ─── DB Sync ──────────────────────────────────────────────────────
             tx.advance('db_sync', 'Creating marketplace listing and syncing map...')
             const res = await api.post(`/marketplace/list/${propertyId}`, {
                 price_matic: priceMatic,
@@ -228,9 +220,11 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
             const { usePropertyStore } = await import('./propertyStore')
             await usePropertyStore.getState().syncAll()
 
-            // Force refresh marketplace listings
+            const { usePortfolioStore } = await import('./portfolioStore')
+            usePortfolioStore.getState().fetchPortfolio()
+
             set({ _lastFetched: 0 } as any)
-            await get().fetchListings()
+            await get().fetchListings(true)
 
             tx.complete(txHash)
             return res
@@ -240,6 +234,38 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
             const msg = parseBlockchainError(e) || e?.message || 'Failed to list property.'
             tx.fail(msg)
             throw e
+        }
+    },
+
+    subscribeToUpdates: () => {
+        if (get()._ws) return;
+
+        try {
+            const wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('http', 'ws') || 'ws://127.0.0.1:8000';
+            const ws = new WebSocket(`${wsUrl}/ws`);
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.event || message.topic === 'property:update') {
+                        console.log("⚡ [Realtime] Marketplace Sync Triggered:", message.event || message.topic);
+                        get().fetchListings(true);
+                    }
+                } catch (e) {
+                    console.error("Marketplace WS Parse Error", e);
+                }
+            };
+
+            ws.onclose = () => {
+                setTimeout(() => {
+                    set({ _ws: undefined } as any);
+                    get().subscribeToUpdates();
+                }, 5000);
+            };
+
+            set({ _ws: ws } as any);
+        } catch (err) {
+            console.error("Failed to connect Marketplace WS", err);
         }
     },
 }))

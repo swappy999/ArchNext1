@@ -34,6 +34,8 @@ interface PortfolioState {
     _lastFetched: number
     fetchPortfolio: () => Promise<void>
     invalidatePortfolio: () => void
+    _ws?: WebSocket
+    subscribeToUpdates: () => void
 }
 
 export const usePortfolioStore = create<PortfolioState>((set, get) => ({
@@ -76,4 +78,32 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         }
     },
     invalidatePortfolio: () => set({ _lastFetched: 0 }),
+    subscribeToUpdates: () => {
+        if (get()._ws) return;
+        try {
+            const wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('http', 'ws') || 'ws://127.0.0.1:8000';
+            const ws = new WebSocket(`${wsUrl}/ws`);
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.event || message.topic === 'property:update' || message.event === 'BID_PLACED') {
+                        console.log("⚡ [Realtime] Portfolio Sync Triggered:", message.event || message.topic);
+                        get().invalidatePortfolio();
+                        get().fetchPortfolio();
+                    }
+                } catch (e) {
+                    console.error("Portfolio WS Parse Error", e);
+                }
+            };
+            ws.onclose = () => {
+                setTimeout(() => {
+                    set({ _ws: undefined } as any);
+                    get().subscribeToUpdates();
+                }, 5000);
+            };
+            set({ _ws: ws } as any);
+        } catch (err) {
+            console.error("Failed to connect Portfolio WS", err);
+        }
+    }
 }))

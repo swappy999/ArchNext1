@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
-import { Building2, Brain, ArrowUpRight, Activity, Lock, FileCheck, Users, Wallet, TrendingUp } from 'lucide-react'
+import { Building2, Brain, ArrowUpRight, Activity, Lock, FileCheck, Users, Wallet, TrendingUp, Zap } from 'lucide-react'
 import { useRef, useEffect, useState, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
@@ -296,6 +296,30 @@ export default function LandingPage() {
                         </div>
                     </motion.div>
                 </section>
+
+                {/* 1b. STATS BAR */}
+                <div className="relative w-full border-y border-white/[0.04] bg-[#05070A]/80 overflow-hidden">
+                    <div className="max-w-7xl mx-auto px-8 py-5">
+                        <div className="flex flex-wrap justify-around items-center gap-x-6 gap-y-4">
+                            {[
+                                { label: 'Properties Indexed', value: '1,200+', icon: Building2, color: 'text-cyan-400' },
+                                { label: 'Total Volume', value: '₹480 Cr+', icon: TrendingUp, color: 'text-emerald-400' },
+                                { label: 'AI Accuracy', value: '94.8%', icon: Brain, color: 'text-purple-400' },
+                                { label: 'Networks', value: 'Polygon + Algorand', icon: Zap, color: 'text-amber-400' },
+                            ].map((s) => (
+                                <div key={s.label} className="flex items-center gap-3">
+                                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] ${s.color}`}>
+                                        <s.icon size={14} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-white tracking-tight">{s.value}</p>
+                                        <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{s.label}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
 
                 {/* 2. Global Index Preview */}
                 <section className="relative w-full py-16 px-8 border-y border-white/5 bg-[#05070A] z-10">

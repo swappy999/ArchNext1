@@ -162,14 +162,14 @@ export default function DashboardPage() {
     const timelineSteps = ['Minted', 'Verified', 'Listed', 'Sold']
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             {/* ─── BENTO GRID ─── */}
-            <div className="grid grid-cols-12 gap-5 auto-rows-min">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-5 auto-rows-min">
 
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  1. SMARTCITY DASHBOARD  (spans 5 cols, 2 rows)  ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 lg:col-span-5 row-span-2 p-0" delay={0}>
+                <Widget className="col-span-1 md:col-span-5 row-span-2 p-0" delay={0}>
                     {/* City Image BG */}
                     <div className="relative h-48 bg-gradient-to-br from-cyan-900/30 via-slate-900 to-indigo-900/30 overflow-hidden">
                         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%20200%20200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cfilter%20id%3D%22f%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%220.65%22%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20filter%3D%22url(%23f)%22%2F%3E%3C%2Fsvg%3E')] opacity-5" />
@@ -233,7 +233,7 @@ export default function DashboardPage() {
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  2. INTERACTIVE SMART MAP  (spans 7 cols, 2 rows) ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 lg:col-span-7 row-span-2" delay={0.1}>
+                <Widget className="col-span-1 md:col-span-7 row-span-2" delay={0.1}>
                     <div className="p-6 h-full flex flex-col">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-black text-white tracking-tight">Property Map</h2>
@@ -281,7 +281,7 @@ export default function DashboardPage() {
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  3. AI PREDICTION INSIGHTS  (spans 4 cols)       ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 md:col-span-6 lg:col-span-4" delay={0.15}>
+                <Widget className="col-span-1 md:col-span-6 lg:col-span-4" delay={0.15}>
                     <div className="p-6 space-y-5">
                         <h2 className="text-lg font-black text-white tracking-tight">AI Prediction Insights</h2>
 
@@ -341,7 +341,7 @@ export default function DashboardPage() {
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  4. NFT MARKETPLACE  (spans 4 cols)              ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 md:col-span-6 lg:col-span-4" delay={0.2}>
+                <Widget className="col-span-1 md:col-span-6 lg:col-span-4" delay={0.2}>
                     <div className="p-6 space-y-5">
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-black text-white tracking-tight">NFT Marketplace</h2>
@@ -389,7 +389,7 @@ export default function DashboardPage() {
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  5. PORTFOLIO OVERVIEW  (spans 4 cols)           ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 md:col-span-6 lg:col-span-4" delay={0.25}>
+                <Widget className="col-span-1 md:col-span-6 lg:col-span-4" delay={0.25}>
                     <div className="p-6 space-y-5">
                         <h2 className="text-lg font-black text-white tracking-tight">Portfolio Overview</h2>
 
@@ -443,7 +443,7 @@ export default function DashboardPage() {
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  6. LIVE INTEL FEED  (spans 4 cols)             ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 md:col-span-6 lg:col-span-4" delay={0.3}>
+                <Widget className="col-span-1 md:col-span-6 lg:col-span-4" delay={0.3}>
                     <div className="p-6 space-y-4">
                         {/* Urban Intel Feed Chart */}
                         <div className="space-y-4 mb-2">
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  7. SMART ALERTS  (spans 4 cols)                 ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 md:col-span-6 lg:col-span-4" delay={0.35}>
+                <Widget className="col-span-1 md:col-span-6 lg:col-span-4" delay={0.35}>
                     <div className="p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Bell size={16} className="text-amber-400" />
@@ -496,7 +496,7 @@ export default function DashboardPage() {
                 {/* ╔═══════════════════════════════════════════════════╗
                    ║  8. WEB3 OWNERSHIP TIMELINE  (spans 4 cols)      ║
                    ╚═══════════════════════════════════════════════════╝ */}
-                <Widget className="col-span-12 md:col-span-6 lg:col-span-4" delay={0.4}>
+                <Widget className="col-span-1 md:col-span-6 lg:col-span-4" delay={0.4}>
                     <div className="p-6 space-y-5">
                         <h2 className="text-lg font-black text-white tracking-tight">Web3 Ownership Timeline</h2>
 

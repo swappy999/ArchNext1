@@ -6,6 +6,8 @@ const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replac
 async function req(path: string, options: RequestInit = {}, token?: string | null) {
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'Bypass-Tunnel-Reminder': 'true',
         ...(options.headers as Record<string, string>),
     };
     if (token) headers['Authorization'] = `Bearer ${token}`;

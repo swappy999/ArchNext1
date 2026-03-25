@@ -63,9 +63,9 @@ async def startup():
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    # Send an initial handshake so the frontend knows it's connected
-    await websocket.send_json({"event": "CONNECTED", "message": "ArchNext Real-Time stream active."})
     try:
+        # Send an initial handshake so the frontend knows it's connected
+        await websocket.send_json({"event": "CONNECTED", "message": "ArchNext Real-Time stream active."})
         while True:
             data = await websocket.receive_text()
             if data == "ping":

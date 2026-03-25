@@ -38,6 +38,7 @@ export default function MapPage() {
         viewport, activeLayers, hoverInfo, viewMode,
         clusters, heatmap, zones, pulsePoints, currentZone,
         loading, cinematicEntry, propertyCount, mlGeoJson,
+        selectedPropertyId, // Extracted selectedPropertyId
         setBounds, toggleLayer, setHoverInfo,
         setViewMode, setCinematicEntry, setViewport,
         selectedFeature, setSelectedFeature
@@ -214,6 +215,43 @@ export default function MapPage() {
         }
     }, [viewMode, mapLoaded])
 
+    // ─── Direct Selection Fly-to (From Properties Page) ───────────────────
+    useEffect(() => {
+        if (!mapLoaded || !mapRef.current || !selectedPropertyId) return;
+
+        // Find the property in the mlGeoJson
+        const propFeature = mlGeoJson?.features?.find((f: any) => f.properties.id === selectedPropertyId || f.properties.property_id === selectedPropertyId);
+        
+        if (propFeature && propFeature.geometry) {
+             const [lng, lat] = propFeature.geometry.coordinates;
+             
+             // Fly to location
+             mapRef.current.getMap().flyTo({
+                 center: [lng, lat],
+                 zoom: 16.5,
+                 pitch: 60,
+                 bearing: -20,
+                 duration: 2500,
+                 essential: true
+             });
+
+             // Ensure 3D mode and Properties layer are active for best view
+             setViewMode('3d');
+             if (!activeLayers.properties) {
+                 toggleLayer('properties');
+             }
+
+             // Auto hover it
+             setHoverInfo({
+                 x: window.innerWidth / 2,
+                 y: window.innerHeight / 2,
+                 object: propFeature.properties,
+                 layer: 'properties'
+             });
+
+        }
+    }, [selectedPropertyId, mapLoaded, mlGeoJson]);
+
     // ─── Buildings Visibility ─────────────────────────────────────────────
     useEffect(() => {
         if (!mapRef.current || !mapLoaded) return
@@ -340,7 +378,7 @@ export default function MapPage() {
                     onHover: (info: any) => {
                         if (info.object) {
                             setHoverInfo({ x: info.x, y: info.y, object: info.object.properties, layer: 'properties' })
-                        } else {
+                        } else if (!selectedPropertyId) {
                             setHoverInfo(null)
                         }
                     }
@@ -441,42 +479,39 @@ export default function MapPage() {
 
 
     return (
-        <div className="h-[calc(100vh-140px)] flex flex-col space-y-4">
+        <div className="flex flex-col gap-3">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Scan size={14} className="text-cyan-500 animate-pulse" />
-                        <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em]">
-                            Property Management System
+                    <div className="flex items-center gap-2 mb-1">
+                        <Scan size={13} className="text-cyan-500 animate-pulse" />
+                        <span className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em]">
+                            Property Intelligence
                         </span>
                     </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter leading-none">
+                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter leading-none">
                         Property Map
                     </h1>
-                    <p className="text-slate-500 mt-1.5 text-sm font-medium">
-                        Real-time property visualization · deck.gl + MapLibre GL
-                    </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="glass-panel px-4 py-2 rounded-2xl flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
-                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Data Synced</span>
+                <div className="flex items-center gap-2 shrink-0">
+                    <div className="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981] animate-pulse" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live</span>
                         </div>
-                        <div className="h-4 w-px bg-white/10" />
+                        <div className="h-3 w-px bg-white/10" />
                         {loading ? (
-                            <div className="flex items-center gap-2 text-[10px] font-black text-cyan-400 uppercase tracking-widest animate-pulse">
-                                <Activity size={12} /> SCANNING...
+                            <div className="flex items-center gap-1.5 text-[10px] font-black text-cyan-400 uppercase tracking-widest animate-pulse">
+                                <Activity size={11} /> Scanning
                             </div>
                         ) : (
-                            <div className="flex items-center gap-3">
-                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                                    {propertyCount} PROPERTIES
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {propertyCount} Props
                                 </span>
-                                <span className="text-[11px] font-black text-cyan-500/60 uppercase tracking-widest">
-                                    {activeCount} LAYERS
+                                <span className="text-[10px] font-black text-cyan-500/60 uppercase tracking-widest">
+                                    {activeCount} Layers
                                 </span>
                             </div>
                         )}
@@ -484,8 +519,8 @@ export default function MapPage() {
                 </div>
             </div>
 
-            {/* Map Container */}
-            <div className="flex-1 relative rounded-[2.5rem] overflow-hidden border border-white/[0.06] bg-[#030508] shadow-2xl">
+            {/* Map Container — responsive height: phones 60vh, tablets 65vh, desktop fills flex */}
+            <div className="relative rounded-xl sm:rounded-2xl overflow-hidden border border-white/[0.06] bg-[#030508] shadow-2xl h-[60vh] sm:h-[65vh] lg:h-[calc(100svh-14rem)]">
                 <div className="absolute inset-0">
                     <Map
                         ref={mapRef}
@@ -533,14 +568,14 @@ export default function MapPage() {
                     </div>
                 </div>
 
-                {/* Left — Layer Controls */}
+                {/* Left — Layer Controls (hidden on mobile, visible sm+) */}
                 <AnimatePresence>
                     {cinematicEntry && (
                         <motion.div
                             initial={{ opacity: 0, x: -30 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="absolute top-6 left-6 z-20 flex flex-col gap-3"
+                            className="absolute top-4 left-4 z-20 flex-col gap-3 hidden sm:flex"
                         >
                             {/* Layer Toggles */}
                             <div className="bg-[#0a0e1a]/80 backdrop-blur-2xl p-2 rounded-2xl flex flex-col gap-1 border border-white/[0.06] shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
@@ -549,11 +584,11 @@ export default function MapPage() {
                                     <span className="text-[9px] font-black text-cyan-400/80 uppercase tracking-[0.15em]">Layers</span>
                                 </div>
                                 {layerConfig.map(({ id, label, icon: Icon, color }) => {
-                                    const isActive = activeLayers[id]
+                                    const isActive = activeLayers[id as keyof typeof activeLayers]
                                     return (
                                         <button
                                             key={id}
-                                            onClick={() => toggleLayer(id)}
+                                            onClick={() => toggleLayer(id as keyof typeof activeLayers)}
                                             className={cn(
                                                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all duration-300 group/btn relative",
                                                 isActive

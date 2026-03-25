@@ -43,6 +43,10 @@ cd ..
 echo [3/5] Booting Local Blockchain Network (Port 8545)...
 start "ArchNext - Blockchain Engine" cmd /k "cd blockchain && npx hardhat node"
 
+:: 3.5 Launch Backend Tunnel (Permanent)
+echo [3.5/5] Launching Neural Tunnel (Permanent Link)...
+start "ArchNext - Backend Tunnel" cmd /k "start_backend_tunnel.bat"
+
 :: 4. Launch Backend
 echo [4/5] Powering up Hyper-Speed API (Port 8000)...
 start "ArchNext - Backend Engine" cmd /k "cd backend && venv\Scripts\uvicorn.exe app.main:app --reload --host 0.0.0.0 --port 8000"

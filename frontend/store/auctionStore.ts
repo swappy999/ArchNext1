@@ -279,6 +279,13 @@ export const useAuctionStore = create<AuctionState>((set, get) => ({
             await get().fetchAuctionDetail(auctionId)
             const { usePropertyStore } = await import('./propertyStore')
             await usePropertyStore.getState().syncAll()
+            
+            // ─── Sync Marketplace ─────────────────────────────────────────────
+            const { useMarketplaceStore } = await import('./marketplaceStore')
+            useMarketplaceStore.getState().fetchListings(true)
+
+            const { usePortfolioStore } = await import('./portfolioStore')
+            usePortfolioStore.getState().fetchPortfolio()
 
             tx.complete(txHash)
             return result

@@ -45,9 +45,10 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
+    allow_origin_regex="https://.*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # SECURITY: no wildcard
-    allow_headers=["Authorization", "Content-Type", "Accept"],  # SECURITY: explicit headers
+    allow_headers=["Authorization", "Content-Type", "Accept", "ngrok-skip-browser-warning", "bypass-tunnel-reminder"],  # SECURITY: explicit headers
 )
 
 

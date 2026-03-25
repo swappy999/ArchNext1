@@ -1,5 +1,5 @@
 from app.repository.property_repo import get_property_by_id
-from app.services.prediction_service import get_prediction, _is_loaded
+from app.services.prediction_service import get_prediction
 from fastapi import HTTPException
 from app.core.verification.errors.exceptions import AppError, NotFoundError, ValidationError, AuthenticationError, AuthorizationError
 from datetime import datetime
@@ -116,7 +116,7 @@ async def verify_property_for_listing(property_id: str, asking_price: float = 0)
     growth_score = 0.0
     size_sqft = 1200 
 
-    if _is_loaded and lat and lng:
+    if lat and lng:
         try:
             prediction = await get_prediction(lat, lng)
             price_per_sqft = round(prediction["predicted_price"], 2)

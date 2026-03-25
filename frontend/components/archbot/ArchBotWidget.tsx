@@ -6,7 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Send } from 'lucide-react'
 import { api } from '@/lib/api'
 import { ArchBotAvatar, AvatarState } from './ArchBotAvatar'
-import { parseCommandToRoute, parseMapLayerCommand } from './CommandInterpreter'
+import { parseCommandToRoute, parseMapLayerCommand, parsePropertyFilters } from './CommandInterpreter'
+import { useSearchStore } from '@/store/searchStore'
+import { usePropertyStore } from '@/store/propertyStore'
 
 interface Message {
     id: string
@@ -15,9 +17,9 @@ interface Message {
 }
 
 const SMART_SUGGESTIONS = [
+    "Find properties under 50 lakh",
     "Explore Thermal Map",
     "Predict Property Value",
-    "View Urban Pulse",
     "Analyze Ward"
 ]
 
@@ -71,14 +73,43 @@ export default function ArchBotWidget() {
     }
 
     const handleSmartTriggers = (userText: string, modelText: string) => {
+        const lowerCombined = (userText + " " + modelText).toLowerCase()
+        
+        // 1. Natural Language Filtering for Properties
+        const filters = parsePropertyFilters(userText)
+        if (filters) {
+             const searchState = useSearchStore.getState()
+             // apply search query if found
+             if (filters.query) {
+                 searchState.setQuery(filters.query, usePropertyStore.getState().properties)
+             }
+             
+             // Construct a URL to pass to the properties page
+             const params = new URLSearchParams()
+             if (filters.query) params.set('q', filters.query)
+             if (filters.priceMin) params.set('min', filters.priceMin.toString())
+             if (filters.priceMax) params.set('max', filters.priceMax.toString())
+
+             if (pathname !== '/properties') {
+                 router.push(`/properties?${params.toString()}`)
+             } else {
+                 // Trigger a custom event that properties/page.tsx can listen to if already there
+                 window.dispatchEvent(new CustomEvent('archbot:applyFilters', { 
+                     detail: filters 
+                 }))
+             }
+             return; // Stop here if we applied filters
+        }
+
+        // 2. Direct Navigation
         const route = parseCommandToRoute(userText, modelText)
         if (route && pathname !== route) {
             router.push(route)
             return
         }
 
-        const combined = (userText + " " + modelText).toLowerCase()
-        const layer = parseMapLayerCommand(combined)
+        // 3. Map Layers
+        const layer = parseMapLayerCommand(lowerCombined)
         if (layer) {
             window.dispatchEvent(new CustomEvent('map:activateLayer', { detail: { layer: layer } }))
             if (layer === 'heatmap') {

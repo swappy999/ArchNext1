@@ -1,18 +1,22 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
     ShoppingBag, Wallet, Loader2, Building2, Fingerprint,
-    Cpu, Gavel, TrendingUp, Brain, Shield, Flame, CheckCircle2, Clock, Sparkles, RefreshCw
+    Cpu, Gavel, TrendingUp, Brain, Shield, Flame, CheckCircle2,
+    Activity, Search, SlidersHorizontal, RefreshCw
 } from 'lucide-react'
 import { useMarketplaceStore } from '@/store/marketplaceStore'
 import { useAuthStore } from '@/store/authStore'
 import { useAuctionStore } from '@/store/auctionStore'
-import { formatCurrency, shortAddress, cn } from '@/lib/utils'
-import { api } from '@/lib/api'
+import { useSearchStore } from '@/store/searchStore'
+import { formatCurrency, shortAddress, cn, formatAddress } from '@/lib/utils'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Toaster, toast } from 'react-hot-toast'
+import { AnimatePresence } from 'framer-motion'
+import { parseBlockchainError } from '@/store/walletStore'
 
 // ─── AI Valuation Badge ──────────────────────────────────────────────────────
 function AIValuationBadge({ valuation }: { valuation: any }) {
@@ -25,17 +29,17 @@ function AIValuationBadge({ valuation }: { valuation: any }) {
     const tierColor = tierColors[valuation.market_tier] || tierColors.C
 
     return (
-        <div className="space-y-3 pt-4 border-t border-white/[0.04]">
+        <div className="space-y-3 pt-4 border-t border-[var(--border)]">
             <div className="flex items-center gap-2">
                 <Brain size={12} className="text-cyan-400" />
                 <span className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.1em]">Value Report</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-                <div className="glass-panel p-3 rounded-xl border border-white/[0.06]">
+                <div className="glass-panel p-3 rounded-xl border border-[var(--border)]">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Per Sq.Ft</p>
                     <p className="text-sm font-black text-white">₹ {valuation.predicted_price_per_sqft?.toLocaleString('en-IN')}</p>
                 </div>
-                <div className="glass-panel p-3 rounded-xl border border-white/[0.06]">
+                <div className="glass-panel p-3 rounded-xl border border-[var(--border)]">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Est.</p>
                     <p className="text-sm font-black text-emerald-400">₹ {(valuation.total_estimated_value / 10000000)?.toFixed(2)} Cr</p>
                 </div>
@@ -53,41 +57,6 @@ function AIValuationBadge({ valuation }: { valuation: any }) {
     )
 }
 
-// ─── Auction Countdown Timer ─────────────────────────────────────────────────
-function CountdownTimer({ endTime }: { endTime: string | null }) {
-    const [timeLeft, setTimeLeft] = useState('')
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-    useEffect(() => {
-        if (!endTime) return
-        const tick = () => {
-            const end = new Date(endTime).getTime()
-            const now = Date.now()
-            const diff = end - now
-            if (diff <= 0) {
-                setTimeLeft('Ended')
-                if (intervalRef.current) clearInterval(intervalRef.current)
-                return
-            }
-            const h = Math.floor(diff / 3600000)
-            const m = Math.floor((diff % 3600000) / 60000)
-            const s = Math.floor((diff % 60000) / 1000)
-            setTimeLeft(`${h}h ${m}m ${s}s`)
-        }
-        tick()
-        intervalRef.current = setInterval(tick, 1000)
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-    }, [endTime])
-
-    if (!endTime || !timeLeft) return null
-    return (
-        <div className="flex items-center gap-1.5 text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">
-            <Clock size={10} className="animate-pulse" />
-            {timeLeft}
-        </div>
-    )
-}
-
 // ─── NFT Card ────────────────────────────────────────────────────────────────
 function NFTCard({ listing, index }: { listing: any, index: number }) {
     const { buy, buyingId } = useMarketplaceStore()
@@ -95,6 +64,9 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
 
     const isBuying = buyingId === listing.id
     const [buying, setBuying] = useState(false)
+    const [showBidModal, setShowBidModal] = useState(false)
+    const [bidAmount, setBidAmount] = useState('')
+    const [bidSuccess, setBidSuccess] = useState(false)
 
     const isSold = listing.status === 'sold'
     const isOwner = listing.owner_id && userWallet && (listing.owner_id.toLowerCase() === userWallet || listing.seller?.toLowerCase() === userWallet)
@@ -109,30 +81,42 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
         }
     }
 
-    const { createAuction } = useAuctionStore()
+    const { placeBid, bidding, approving } = useAuctionStore()
     const handleBid = async (e: React.MouseEvent) => {
         e.stopPropagation()
-        // Simple bid integration: open detail page or use prompt for now
-        const amount = prompt("Enter bid amount (INR):")
-        if (amount) {
-            try {
-                const { api } = await import('@/lib/api')
-                const token = useAuthStore.getState().accessToken
-                await api.post(`/auction/bid/${listing.id}`, { amount: parseFloat(amount) }, token)
-                toast.success("Bid placed successfully!")
-            } catch (err: any) {
-                toast.error(err.message || "Failed to place bid")
-            }
+        setShowBidModal(true)
+    }
+
+    const submitBid = async (e: React.FormEvent) => {
+        e.preventDefault()
+        const amount = parseFloat(bidAmount)
+        if (!amount || isNaN(amount) || amount <= 0) {
+            toast.error("Please enter a valid bid amount")
+            return
+        }
+        
+        try {
+             await placeBid(listing.id, amount)
+             setBidSuccess(true)
+             toast.success("Bid placed successfully!")
+             setTimeout(() => {
+                 setShowBidModal(false)
+                 setBidSuccess(false)
+                 setBidAmount('')
+             }, 2000)
+        } catch (err: any) {
+             toast.error(parseBlockchainError(err) || "Failed to place bid")
         }
     }
 
     return (
+        <>
         <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.02, duration: 0.3 }}
             className={cn(
-                "group relative flex flex-col rounded-[2.5rem] bg-[#0B0F1A]/80 backdrop-blur-md border border-white/[0.06] hover:border-cyan-500/30 transition-all duration-500 overflow-hidden",
+                "group relative flex flex-col rounded-[2.5rem] bg-[var(--background)]/80 backdrop-blur-md border border-[var(--border)] hover:border-cyan-500/30 transition-all duration-500 overflow-hidden",
                 isSold && "grayscale-[0.5] opacity-80"
             )}
         >
@@ -152,13 +136,14 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
             )}
 
             {/* Visual Container */}
-            <div className="relative h-56 bg-[#05070A] overflow-hidden flex items-center justify-center">
+            <div className="relative h-56 bg-[var(--background)]/50 overflow-hidden flex items-center justify-center">
                 <div className="absolute inset-0 grid-bg opacity-30 group-hover:opacity-50 transition-opacity duration-500" />
 
                 {listing.image_url ? (
                     <img
                         src={listing.image_url}
                         alt={listing.title}
+                        loading="lazy"
                         className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
                     />
                 ) : (
@@ -167,20 +152,16 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                     </div>
                 )}
 
-                {listing.image_url && <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1A] via-[#0B0F1A]/40 to-transparent" />}
+                {listing.image_url && <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-[var(--background)]/40 to-transparent" />}
 
                 {/* Status Badges */}
                 <div className="absolute top-5 left-5 flex flex-col gap-2 z-20">
-                    <span className="text-[10px] font-black px-3 py-1.5 rounded-xl border border-white/10 bg-black/60 backdrop-blur-md text-slate-400 uppercase tracking-widest shadow-lg">
+                    <span className="text-[10px] font-black px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--background)]/60 backdrop-blur-md text-slate-400 uppercase tracking-widest shadow-lg flex items-center gap-2">
+                        {listing.status === 'auction' && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_#f43f5e]" />}
                         PROPERTY #{listing.token_id || listing.id?.slice(0, 6)}
                     </span>
-                    {listing.is_verified && (
-                        <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-md text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
-                            <CheckCircle2 size={12} /> AI Verified
-                        </span>
-                    )}
                     {isOwner && (
-                        <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/20 backdrop-blur-md text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
+                        <span className="text-[9px] font-black px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/20 backdrop-blur-md text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
                             <CheckCircle2 size={12} /> YOUR ASSET
                         </span>
                     )}
@@ -207,34 +188,22 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
 
                 {/* Market Tier Badge */}
                 {listing.ai_valuation && (
-                    <div className="absolute top-5 right-5 z-20 flex flex-col gap-1.5 items-end">
-                        {/* Zone Grade */}
+                    <div className="absolute top-5 right-5 z-20">
                         <div className={cn(
                             "text-[9px] font-black px-3 py-1.5 rounded-xl backdrop-blur-md uppercase tracking-widest shadow-lg flex items-center gap-1.5",
                             listing.ai_valuation.market_tier === 'A' ? 'border border-amber-500/30 bg-amber-500/10 text-amber-400' :
                                 listing.ai_valuation.market_tier === 'B' ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-400' :
                                     'border border-slate-500/30 bg-slate-500/10 text-slate-400'
                         )}>
-                            <Flame size={10} />
-                            Zone {listing.ai_valuation.market_tier}
+                            <Flame size={10} aria-hidden="true" />
+                            <span className="sr-only">AI Market Tier </span>
+                            ZONE {listing.ai_valuation.market_tier}
                         </div>
-                        {/* Grade badge */}
-                        {listing.tier && (
-                            <div className={cn(
-                                "text-[8px] font-black px-2.5 py-1 rounded-lg backdrop-blur-md uppercase tracking-widest",
-                                listing.tier === 'Grade A' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                                    listing.tier === 'Grade B' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                                        listing.tier === 'Grade C' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                                            'bg-slate-800 text-slate-400 border border-slate-600/30'
-                            )}>
-                                {listing.tier}
-                            </div>
-                        )}
                     </div>
                 )}
 
                 {/* Bottom Info Bar */}
-                <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#05070A] to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex items-center gap-3 z-20">
+                <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[var(--background)] to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex items-center gap-3 z-20">
                     <Cpu size={14} className="text-emerald-400" />
                     <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">AI Verified Asset</span>
                 </div>
@@ -249,6 +218,12 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                         </h3>
                     </Link>
                     <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black text-slate-400 uppercase">Location:</span>
+                            <span className="text-[10px] font-black text-white truncate max-w-[200px]">
+                                {formatAddress(listing.property?.address || listing.address, listing.property?.ward || listing.ward)}
+                            </span>
+                        </div>
                         <div className="flex items-center gap-2">
                             <span className="text-[9px] font-black text-slate-400 uppercase">Owner:</span>
                             <span className="text-[10px] font-black text-white">{listing.owner?.name || 'Protocol'}</span>
@@ -265,7 +240,7 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                 {/* AI Valuation Badge */}
                 <AIValuationBadge valuation={listing.ai_valuation} />
 
-                <div className="flex items-end justify-between pt-4 border-t border-white/[0.04] mt-auto">
+                <div className="flex items-end justify-between pt-4 border-t border-[var(--border)] mt-auto">
                     <div className="flex-1">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
                             {listing.status === 'auction' ? 'Highest Bid' : 'Listed Price'}
@@ -273,11 +248,6 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                         <p className="text-xl font-black text-white tracking-tighter group-hover:text-cyan-400 transition-colors glow-text truncate pr-2">
                             {listing.price_listed_matic ? `${listing.price_listed_matic} POL` : formatCurrency(listing.price || 0)}
                         </p>
-                        {listing.status === 'auction' && listing.auction_end_time && (
-                            <div className="mt-1">
-                                <CountdownTimer endTime={listing.auction_end_time} />
-                            </div>
-                        )}
                     </div>
 
                     <div className="flex gap-2">
@@ -298,14 +268,13 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                                 disabled={isBuying || buying || isSold || isOwner}
                                 aria-disabled={isBuying || buying || isSold || isOwner}
                                 className={cn(
-                                    "px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all",
-                                    (isSold || isOwner) ? "bg-slate-800 text-slate-400 cursor-not-allowed" : "bg-white text-black hover:bg-cyan-50 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] shadow-md"
+                                    (isSold || isOwner) ? "bg-slate-800 text-slate-300 cursor-not-allowed" : "bg-white text-black hover:bg-cyan-50 hover:shadow-cyan-500/20"
                                 )}
                                 aria-label={isSold ? "Property Sold" : isOwner ? "Your Property" : "Buy Property Now"}
                             >
                                 {(isBuying || buying) ? <Loader2 size={12} className="animate-spin" /> : <Wallet size={12} />}
                                 <span className="relative z-10">
-                                    {(isBuying || buying) ? 'PROCESSING' : isSold ? 'SOLD OUT' : isOwner ? 'YOUR ASSET' : 'BUY NOW'}
+                                    {(isBuying || buying) ? 'PROCESSING' : isSold ? 'SOLD' : isOwner ? 'YOUR ASSET' : 'BUY NOW'}
                                 </span>
                             </button>
                         ) : isOwner ? (
@@ -323,22 +292,158 @@ function NFTCard({ listing, index }: { listing: any, index: number }) {
                 </div>
             </div>
         </motion.div>
+
+        {/* Bid Modal For This Specific Card */}
+        <AnimatePresence>
+            {showBidModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => !bidding && setShowBidModal(false)}
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className="w-full max-w-lg bg-[var(--background)] border border-[var(--border)] rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden"
+                    >
+                         {bidding || bidSuccess ? (
+                            <div className="absolute inset-0 z-20 bg-[var(--background)]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+                                {bidSuccess ? (
+                                    <motion.div 
+                                        initial={{ scale: 0.5, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        className="flex flex-col items-center animate-success-pop"
+                                    >
+                                        <div className="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                                            <CheckCircle2 size={40} className="text-emerald-500" />
+                                        </div>
+                                        <h3 className="text-2xl font-black text-white mb-2">Bid Confirmed!</h3>
+                                        <p className="text-sm text-slate-400">Your bid has been recorded on the network.</p>
+                                    </motion.div>
+                                ) : (
+                                    <>
+                                        <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mb-4" />
+                                        <h3 className="text-xl font-bold text-white mb-2">Processing Bid on Network</h3>
+                                        <p className="text-sm text-slate-400 max-w-[250px]">
+                                            {approving ? "Please approve the transaction in your wallet..." : "Mining your bid on the blockchain. This usually takes 10-15 seconds."}
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                         ) : null}
+                         <div className="flex items-center justify-between mb-8">
+                             <div>
+                                 <h3 className="text-2xl font-black text-white tracking-tight">Place Bid</h3>
+                                 <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-bold">Auction #{listing.id}</p>
+                             </div>
+                             <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+                                 <Gavel size={20} className="text-cyan-400" />
+                             </div>
+                         </div>
+                         
+                         <form onSubmit={submitBid} className="space-y-6">
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Bid Amount (ARCH)</label>
+                                  <div className="relative">
+                                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                                      <input 
+                                          type="number"
+                                          step="0.01"
+                                          min={listing.current_bid ? listing.current_bid + (listing.min_bid_increment || 1) : listing.reserve_price}
+                                          value={bidAmount}
+                                          onChange={e => setBidAmount(e.target.value)}
+                                          placeholder={`Min ${listing.current_bid ? listing.current_bid + (listing.min_bid_increment || 1) : listing.reserve_price}`}
+                                          className="w-full h-14 bg-[var(--background)] border border-[var(--border)] rounded-2xl pl-8 pr-4 text-lg font-black text-white focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 outline-none transition-all placeholder:text-slate-600"
+                                      />
+                                  </div>
+                              </div>
+                              <div className="flex gap-3 pt-4">
+                                  <button
+                                       type="button"
+                                       onClick={() => setShowBidModal(false)}
+                                       className="flex-1 py-4 rounded-2xl border border-white/[0.1] text-sm font-bold text-slate-300 hover:bg-white/[0.05] transition-colors"
+                                  >
+                                      Cancel
+                                  </button>
+                                  <button
+                                       type="submit"
+                                       disabled={!bidAmount || bidding}
+                                       className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-bold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 disabled:opacity-50 transition-all flex items-center justify-center"
+                                  >
+                                      Confirm Bid
+                                  </button>
+                              </div>
+                         </form>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+        </>
     )
 }
 
 export default function MarketplacePage() {
-    const { listings, loading, fetchListings } = useMarketplaceStore()
+    const { listings, loading, fetchListings, subscribeToUpdates, buy, buyingId } = useMarketplaceStore()
+    const { query, setQuery, isSearching } = useSearchStore()
+
     const [filter, setFilter] = useState<'all' | 'nft' | 'standard'>('all')
 
-    useEffect(() => { fetchListings() }, [])
+    // Advanced Filters
+    const [showFilters, setShowFilters] = useState(false)
+    const [priceMin, setPriceMin] = useState<string>('')
+    const [priceMax, setPriceMax] = useState<string>('')
+    const [onlyVerified, setOnlyVerified] = useState(false)
+
+    useEffect(() => {
+        fetchListings()
+        subscribeToUpdates()
+    }, [])
 
     const filtered = useMemo(() => {
-        return listings.filter((l: any) => {
+        let result = listings.filter((l: any) => {
             if (filter === 'nft') return l.is_nft
             if (filter === 'standard') return !l.is_nft
             return true
         })
-    }, [listings, filter])
+
+        // 2. Search Query
+        if (query.trim()) {
+            const term = query.toLowerCase()
+            result = result.filter((l: any) => 
+                (l.title || l.property?.title || l.property_title || '').toLowerCase().includes(term) ||
+                (l.address || l.property?.address || '').toLowerCase().includes(term) ||
+                (l.ward?.toString() || l.property?.ward?.toString() || '').includes(term)
+            )
+        }
+
+        // 3. Price Range
+        if (priceMin) {
+            const min = parseFloat(priceMin)
+            if (!isNaN(min)) result = result.filter(l => ((l.price_listed_matic || l.price) || 0) >= min)
+        }
+        if (priceMax) {
+            const max = parseFloat(priceMax)
+            if (!isNaN(max)) result = result.filter(l => ((l.price_listed_matic || l.price) || 0) <= max)
+        }
+
+        // 4. Verification
+        if (onlyVerified) result = result.filter(l => l.is_verified || l.ai_valuation)
+
+        return result
+    }, [listings, filter, query, priceMin, priceMax, onlyVerified])
+
+    const activeFilterCount = (priceMin ? 1 : 0) + (priceMax ? 1 : 0) + (onlyVerified ? 1 : 0)
+
+    const resetFilters = () => {
+        setPriceMin('')
+        setPriceMax('')
+        setOnlyVerified(false)
+        setQuery('', []) 
+    }
 
     const stats = useMemo(() => {
         const withAI = listings.filter((l: any) => l.ai_valuation)
@@ -372,27 +477,130 @@ export default function MarketplacePage() {
                     </div>
                 </div>
 
-                {/* Filter Tabs */}
-                <div role="tablist" aria-label="Market Categories" className="glass-panel p-2 rounded-[1.5rem] flex gap-2 border border-white/[0.06] shadow-2xl">
-                    {categories.map(({ id, label, icon: Icon }) => (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                    {/* Filter Tabs */}
+                    <div role="tablist" aria-label="Market Categories" className="glass-panel p-2 rounded-[1.5rem] flex gap-2 border border-white/[0.06] shadow-2xl shrink-0 overflow-x-auto no-scrollbar">
+                        {categories.map(({ id, label, icon: Icon }) => (
+                            <button
+                                key={id}
+                                role="tab"
+                                aria-selected={filter === id}
+                                onClick={() => setFilter(id as any)}
+                                className={cn(
+                                    "relative flex items-center gap-3 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap",
+                                    filter === id
+                                        ? "text-black bg-white shadow-lg"
+                                        : "text-slate-300 hover:text-white hover:bg-white/[0.04]"
+                                )}
+                            >
+                                <Icon size={14} />
+                                <span>{label}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                        {/* Global Search */}
+                        <div className="relative group/search shrink-0 w-full sm:w-56 lg:w-64">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                                {isSearching ? (
+                                    <Loader2 size={16} className="animate-spin text-cyan-500" />
+                                ) : (
+                                    <Search size={16} />
+                                )}
+                            </div>
+                            <input
+                                type="text"
+                                value={query}
+                                onChange={e => setQuery(e.target.value, [])}
+                                placeholder="Search marketplace..."
+                                className="h-12 pl-10 pr-4 w-full rounded-2xl bg-[var(--background)]/40 border border-[var(--border)] text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/40 transition-all font-semibold"
+                            />
+                        </div>
+
+                        {/* Filter Toggle */}
                         <button
-                            key={id}
-                            role="tab"
-                            aria-selected={filter === id}
-                            onClick={() => setFilter(id as any)}
+                            onClick={() => setShowFilters(!showFilters)}
                             className={cn(
-                                "relative flex items-center gap-3 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                filter === id
-                                    ? "text-black bg-white shadow-lg"
-                                    : "text-slate-300 hover:text-white hover:bg-white/[0.04]"
+                                "h-12 px-5 flex items-center gap-2 rounded-2xl border transition-all text-sm font-semibold shrink-0 cursor-pointer",
+                                showFilters || activeFilterCount > 0
+                                    ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
+                                    : "bg-white/[0.04] border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06]"
                             )}
                         >
-                            <Icon size={14} />
-                            <span>{label}</span>
+                            <SlidersHorizontal size={14} />
+                            <span className="hidden sm:inline tracking-widest uppercase text-[10px]">Filters</span>
+                            {activeFilterCount > 0 && (
+                                <span className="w-5 h-5 rounded-md bg-cyan-500 text-black flex items-center justify-center text-[10px] font-black ml-1 absolute -top-2 -right-2 sm:relative sm:top-0 sm:right-0">
+                                    {activeFilterCount}
+                                </span>
+                            )}
                         </button>
-                    ))}
+                    </div>
                 </div>
             </div>
+
+            {/* Advanced Filters Panel */}
+            <AnimatePresence>
+                {showFilters && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="p-6 glass-card rounded-[2rem] border border-[var(--border)] grid grid-cols-1 md:grid-cols-3 gap-8">
+                            {/* Price */}
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Price Range (INR)</label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="number"
+                                        value={priceMin}
+                                        onChange={e => setPriceMin(e.target.value)}
+                                        placeholder="Min"
+                                        className="w-full h-11 px-4 bg-[#0B0F1A] border border-white/[0.08] rounded-xl text-sm font-semibold text-white focus:border-cyan-500/40 focus:outline-none"
+                                    />
+                                    <span className="text-slate-600 font-bold">-</span>
+                                    <input
+                                        type="number"
+                                        value={priceMax}
+                                        onChange={e => setPriceMax(e.target.value)}
+                                        placeholder="Max"
+                                        className="w-full h-11 px-4 bg-[#0B0F1A] border border-white/[0.08] rounded-xl text-sm font-semibold text-white focus:border-cyan-500/40 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Toggles */}
+                            <div className="space-y-4 flex flex-col justify-end pb-2">
+                                <label className="flex items-center gap-3 cursor-pointer group h-11">
+                                    <div className={cn(
+                                        "w-6 h-6 rounded-lg border flex items-center justify-center transition-all shadow-inner",
+                                        onlyVerified ? "bg-emerald-500 border-emerald-500 shadow-emerald-500/20" : "bg-[var(--background)]/40 border-[var(--border)] group-hover:border-slate-500"
+                                    )}>
+                                        {onlyVerified && <CheckCircle2 size={14} className="text-black" />}
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">AI Verified Properties Only</span>
+                                </label>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="space-y-4 flex flex-col justify-end items-end pb-2">
+                                {activeFilterCount > 0 && (
+                                    <button 
+                                        onClick={resetFilters}
+                                        className="text-[11px] font-black text-slate-500 hover:text-rose-400 uppercase tracking-widest mt-2 flex items-center gap-2 transition-colors h-11 px-4 rounded-xl hover:bg-rose-500/10"
+                                    >
+                                        <RefreshCw size={14} /> Reset Filters
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
 
             {/* AI Intelligence Stats Bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-2">
@@ -430,7 +638,7 @@ export default function MarketplacePage() {
             {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {[...Array(6)].map((_, i) => (
-                        <div key={i} className="h-[560px] rounded-[2.5rem] glass-panel bg-white/[0.02] animate-pulse relative overflow-hidden">
+                        <div key={i} className="h-[560px] rounded-[2.5rem] glass-panel bg-[var(--background)]/20 animate-pulse relative overflow-hidden">
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent animate-shimmer" />
                         </div>
                     ))}
@@ -439,7 +647,7 @@ export default function MarketplacePage() {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center justify-center py-40 glass-panel rounded-[3rem] border border-white/[0.06] bg-[#05070A]/50"
+                    className="flex flex-col items-center justify-center py-40 glass-panel rounded-[3rem] border border-[var(--border)] bg-[var(--background)]/20"
                 >
                     <div className="w-24 h-24 rounded-full bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mb-8 relative">
                         <ShoppingBag size={40} className="text-slate-800" />
@@ -447,36 +655,12 @@ export default function MarketplacePage() {
                     </div>
                     <h2 className="text-2xl font-black text-slate-300 tracking-tight">Market Offline</h2>
                     <p className="text-slate-300 mt-2 max-w-xs text-center font-medium">No assets match current search criteria.</p>
-                    <div className="flex gap-3 mt-10 flex-wrap justify-center">
-                        <button
-                            onClick={() => setFilter('all')}
-                            className="px-8 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all flex items-center gap-2"
-                        >
-                            <RefreshCw size={12} /> Reset Filters
-                        </button>
-                        <button
-                            onClick={async () => {
-                                const token = useAuthStore.getState().accessToken
-                                if (!token) { toast.error('Please sign in to seed market data.'); return }
-                                const seedToast = toast.loading('Seeding marketplace data...')
-                                try {
-                                    const res = await api.post('/dev/seed-market', {}, token)
-                                    toast.success(`✅ ${res.message || 'Market seeded! Refreshing...'}`, { id: seedToast, duration: 4000 })
-                                        // Force a full refresh
-                                        ; (useMarketplaceStore as any).setState({ _lastFetched: 0, listings: [] })
-                                    await useMarketplaceStore.getState().fetchListings()
-                                } catch (e: any) {
-                                    toast.error(e?.message || 'Seed failed — is the backend running?', { id: seedToast })
-                                }
-                            }}
-                            className="px-8 py-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/20 transition-all flex items-center gap-2"
-                        >
-                            <Sparkles size={12} /> Seed Market
-                        </button>
-                    </div>
-                    <p className="mt-4 text-[9px] text-slate-600 text-center max-w-xs">
-                        “Seed Market” populates the marketplace with 6 sample Kolkata properties assigned to your account.
-                    </p>
+                    <button
+                        onClick={resetFilters}
+                        className="mt-10 px-8 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] hover:bg-cyan-500/10 hover:border-cyan-500/20 transition-all"
+                    >
+                        Reset Filters
+                    </button>
                 </motion.div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

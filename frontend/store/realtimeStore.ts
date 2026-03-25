@@ -37,7 +37,8 @@ interface RealtimeState {
     _ws: WebSocket | null
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `${API_URL.replace(/^http/, 'ws')}/ws`
 
 // Map of backend event names → user-facing toast messages
 const EVENT_MESSAGES: Record<string, string> = {

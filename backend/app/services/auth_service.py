@@ -113,7 +113,9 @@ async def forgot_password_service(email: str, background_tasks):
     reset_token = create_reset_token(email)
 
     # Build the recovery link
-    reset_link = f"http://localhost:3000/auth/reset-password?token={reset_token}"
+    import os
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    reset_link = f"{frontend_url}/auth/reset-password?token={reset_token}"
 
     # Send asynchronously
     background_tasks.add_task(send_recovery_email, email, reset_link)

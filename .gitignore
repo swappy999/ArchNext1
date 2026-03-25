@@ -30,3 +30,6 @@ logfile
 pw.txt
 peek_otp.py
 test_supabase.py
+cloudflared.exe
+config.yml
+*.bat

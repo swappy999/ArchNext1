@@ -41,8 +41,20 @@ interface MapState {
 
     // ─── UI State ─────────────────────────────────────
     loading: boolean
-    activeLayers: Record<string, boolean>
+    activeLayers: {
+        clusters: boolean;
+        heatmap: boolean;
+        zones: boolean;
+        thermal: boolean;
+        marketVelocity: boolean;
+        demand: boolean;
+        intel: boolean;
+        properties: boolean;
+        buildings: boolean;
+        pulse: boolean;
+    };
     selectedFeature: any | null
+    selectedPropertyId: string | null
     hoverInfo: HoverInfo | null
     viewMode: '2d' | '3d'
     cinematicEntry: boolean
@@ -50,8 +62,9 @@ interface MapState {
     // ─── Actions ──────────────────────────────────────
     setViewport: (viewport: Partial<Viewport>) => void
     setBounds: (bounds: MapBounds) => void
-    toggleLayer: (layerId: string) => void
+    toggleLayer: (layer: keyof MapState['activeLayers']) => void
     setSelectedFeature: (feature: any | null) => void
+    setSelectedProperty: (id: string | null, longitude?: number, latitude?: number) => void
     setHoverInfo: (info: HoverInfo | null) => void
     setViewMode: (mode: '2d' | '3d') => void
     setCinematicEntry: (done: boolean) => void
@@ -91,22 +104,39 @@ export const useMapStore = create<MapState>((set, get) => ({
     // UI
     loading: false,
     activeLayers: {
+        clusters: true,
         heatmap: false,
-        intel: false,
-        zones: false,
-        properties: false,
-        pulse: false,
-        buildings: false,
+        zones: true,
+        thermal: true,
+        marketVelocity: false,
+        demand: false,
+        intel: true,
+        properties: true,
+        buildings: true,
+        pulse: true,
     },
     selectedFeature: null,
+    selectedPropertyId: null,
     hoverInfo: null,
     viewMode: '3d',
     cinematicEntry: false,
 
     // ─── Actions ──────────────────────────────────────
 
-    setViewport: (partial) =>
-        set((s) => ({ viewport: { ...s.viewport, ...partial } })),
+    // Methods
+    flyTo: (target, duration = 1500) => {
+        set((state) => ({
+            viewport: {
+                ...state.viewport,
+                ...target,
+                transitionDuration: duration
+            }
+        }))
+    },
+
+    setViewport: (vp) => set((state) => ({
+        viewport: { ...state.viewport, ...vp }
+    })),
 
     setBounds: (bounds) => {
         set({ bounds })
@@ -115,6 +145,18 @@ export const useMapStore = create<MapState>((set, get) => ({
         fetchTimer = setTimeout(() => {
             get().fetchMapData(bounds)
         }, 500)
+    },
+
+    setSelectedProperty: (id, longitude, latitude) => {
+        set({ selectedPropertyId: id })
+        if (id && longitude !== undefined && latitude !== undefined) {
+            get().flyTo({
+                longitude,
+                latitude,
+                zoom: 16,
+                pitch: 60
+            }, 1500)
+        }
     },
 
     toggleLayer: (layerId) =>
@@ -184,11 +226,5 @@ export const useMapStore = create<MapState>((set, get) => ({
         } catch {
             set({ loading: false })
         }
-    },
-
-    flyTo: (target, _duration = 2000) => {
-        set((s) => ({
-            viewport: { ...s.viewport, ...target },
-        }))
     },
 }))

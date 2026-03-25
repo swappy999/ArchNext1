@@ -2,18 +2,31 @@ import { create } from 'zustand'
 import { api } from '@/lib/api'
 import { useAuthStore } from './authStore'
 
-interface Property {
+export interface Property {
     id: string
     title: string
+    property_title?: string
     address: string
+    ward?: number
+    area?: string
     price: number
-    location: { type: string; coordinates: [number, number] }
+    price_listed_matic?: number
+    location: { type: string; coordinates: [number, number], city?: string }
     nft_minted?: boolean
     nft_token_id?: number
+    is_nft?: boolean
+    is_verified?: boolean
     blockchain_verified?: boolean
     owner_id: string
+    owner?: { name?: string, wallet?: string }
     status?: string
     chain?: 'polygon' | 'algorand' | 'mock'
+    ai_valuation?: any
+    investment_score?: number
+    growth_score?: number
+    verification_hash?: string
+    image_url?: string
+    images?: string[]
 }
 
 interface PropertyState {
@@ -78,8 +91,9 @@ export const usePropertyStore = create<PropertyState>((set, get) => ({
             ws.onmessage = (event) => {
                 try {
                     const message = JSON.parse(event.data);
-                    if (message.topic === 'property:update') {
-                        console.log("⚡ [Realtime] Property State Sync Triggered:", message.data);
+                    // Match the backend's emission format (app/api/ws.py sends the event payload directly)
+                    if (message.event || message.topic === 'property:update') {
+                        console.log("⚡ [Realtime] Property State Sync Triggered:", message.event || message.topic, message);
                         // Invalidate cache and trigger global fetch instantly
                         get().syncAll();
                     }

@@ -32,3 +32,67 @@ export const parseMapLayerCommand = (command: string): MapCommandLayer | null =>
 
     return null
 }
+
+export interface PropertyFilters {
+    query?: string
+    priceMax?: number
+    priceMin?: number
+}
+
+// Very basic local NLP for finding property metrics in a natural language string.
+export const parsePropertyFilters = (command: string): PropertyFilters | null => {
+    const lower = command.toLowerCase()
+    
+    // Only attempt to parse if it's somewhat related to properties/search
+    if (!lower.includes('propert') && !lower.includes('find') && !lower.includes('show') && !lower.includes('search')) {
+        return null;
+    }
+
+    const filters: PropertyFilters = {}
+    let hasFilters = false;
+
+    // Price under X
+    const underMatch = lower.match(/(under|below|less than|max)\s*(\d+)/i)
+    if (underMatch && underMatch[2]) {
+        let val = parseInt(underMatch[2], 10)
+        // Handle "lakh", "lb", "k" roughly
+        if (lower.includes('lakh') || lower.includes('lac')) val = val * 100000;
+        else if (lower.includes('million') || lower.includes('m')) val = val * 1000000;
+        else if (lower.includes('k ')) val = val * 1000;
+
+        filters.priceMax = val
+        hasFilters = true
+    }
+
+    // Price over X
+    const overMatch = lower.match(/(over|above|more than|min)\s*(\d+)/i)
+    if (overMatch && overMatch[2]) {
+        let val = parseInt(overMatch[2], 10)
+        if (lower.includes('lakh') || lower.includes('lac')) val = val * 100000;
+        else if (lower.includes('million') || lower.includes('m')) val = val * 1000000;
+        else if (lower.includes('k ')) val = val * 1000;
+
+        filters.priceMin = val
+        hasFilters = true
+    }
+
+    // Keyword extraction (anything following "in", "at", "near")
+    const locMatch = lower.match(/(?:in|at|near|around)\s+([a-zA-Z\s]+)/i)
+    if (locMatch && locMatch[1]) {
+        // clean up trailing words that might be other commands
+        let loc = locMatch[1].trim()
+        const stopWords = ['under', 'over', 'below', 'above', 'with', 'for']
+        for (const stop of stopWords) {
+            const idx = loc.indexOf(` ${stop} `)
+            if (idx > -1) {
+                loc = loc.substring(0, idx).trim()
+            }
+        }
+        if (loc.length > 2) {
+             filters.query = loc
+             hasFilters = true
+        }
+    }
+
+    return hasFilters ? filters : null
+}
